@@ -21,3 +21,8 @@ venv/
 # IDE
 .vscode/
 .idea/
+
+# Next.js
+.next/
+out/
+.git-disabled/
