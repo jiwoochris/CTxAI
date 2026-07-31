@@ -49,6 +49,8 @@ export const tracks = [
     state: "깨끗한 목재와 조명, 여행·공연·지역 축제 포스터",
     sound: "가까운 목소리와 작은 숨, 젖은 도로의 타이어, 카페 문 종, 멀리 있는 생활음",
     hasPrototype: false,
+    // 5분 수직 슬라이스(상태머신 + 공간음향 + 타임라인 + 폴백) 구현 대상
+    hasSlice: true,
   },
   {
     id: "melo",

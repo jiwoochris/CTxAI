@@ -6,6 +6,7 @@ import TrackInfoPanel from "@/components/TrackInfoPanel";
 import SceneStage from "@/components/SceneStage";
 import DirectionTest from "@/components/DirectionTest";
 import ResultsTable from "@/components/ResultsTable";
+import RomanceSlice from "@/components/RomanceSlice";
 import { tracks } from "@/lib/tracks";
 import { getAudioContext, moodPreview } from "@/lib/audio";
 
@@ -19,6 +20,7 @@ const moodFreqs = {
 export default function Page() {
   const [currentId, setCurrentId] = useState("horror");
   const [sceneActive, setSceneActive] = useState(false);
+  const [sliceActive, setSliceActive] = useState(false);
   const [results, setResults] = useState([]);
 
   const current = tracks.find((t) => t.id === currentId) ?? tracks[0];
@@ -57,6 +59,23 @@ export default function Page() {
           <DirectionTest onLogResult={handleLogResult} />
           <ResultsTable results={results} onReset={() => setResults([])} />
         </>
+      ) : current.hasSlice ? (
+        <>
+          <div className="banner" style={{ marginBottom: 14 }}>
+            🎬 <b>5분 수직 슬라이스.</b> 소개서 §11 의 상태머신 6개 값(scene_state · trust · reveal_level ·
+            tension · time_remaining · last_user_intent)이 실제로 돌아갑니다. 관객 발화 → 의도 분류 → 공개
+            단계 게이트 → 대사 변주 → 신뢰도 갱신까지 한 바퀴, 그리고 4:20 이후 <b>공개 단계 동결</b>과 버스
+            문 엔딩까지 포함합니다. 응답 지연을 2.6s 로 올리거나 오프라인으로 전환하면{" "}
+            <b>브리지 대사 폴백</b>이 발동하는 것도 확인할 수 있습니다.
+            <br />
+            <br />
+            HMD·3D·성우 없이 <b>&quot;관객이 실제로 말을 거는가 / 5분이 성립하는가&quot;</b>만 검증하는
+            Tier 0 프로토타입입니다. 이 상태머신은 WebXR·네이티브 어느 쪽으로 가도 그대로 이식됩니다.
+          </div>
+          <div className="cta">
+            <button onClick={() => setSliceActive(true)}>🎧 로맨스 5분 슬라이스 체험 (헤드폰 필수)</button>
+          </div>
+        </>
       ) : (
         <div className="cta">
           <button onClick={handleMoodPreview}>▶ 무드 프리뷰 재생 (사운드 이벤트 스펙 미확정)</button>
@@ -86,6 +105,7 @@ export default function Page() {
       </div>
 
       <SceneStage active={sceneActive} onClose={() => setSceneActive(false)} />
+      {sliceActive && <RomanceSlice onClose={() => setSliceActive(false)} />}
     </main>
   );
 }

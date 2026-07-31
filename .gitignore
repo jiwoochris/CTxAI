@@ -22,6 +22,9 @@ venv/
 .vscode/
 .idea/
 
+# Claude Code — per-session local permissions, not shared project config
+.claude/settings.local.json
+
 # Next.js
 .next/
 out/
