@@ -7,6 +7,7 @@ import SceneStage from "@/components/SceneStage";
 import DirectionTest from "@/components/DirectionTest";
 import ResultsTable from "@/components/ResultsTable";
 import RomanceSlice from "@/components/RomanceSlice";
+import AnimaticStage from "@/components/AnimaticStage";
 import { tracks } from "@/lib/tracks";
 import { getAudioContext, moodPreview } from "@/lib/audio";
 
@@ -21,6 +22,7 @@ export default function Page() {
   const [currentId, setCurrentId] = useState("horror");
   const [sceneActive, setSceneActive] = useState(false);
   const [sliceActive, setSliceActive] = useState(false);
+  const [animaticActive, setAnimaticActive] = useState(false);
   const [results, setResults] = useState([]);
 
   const current = tracks.find((t) => t.id === currentId) ?? tracks[0];
@@ -46,6 +48,15 @@ export default function Page() {
         PannerNode(HRTF)로 좌/우/전/후 방향을 근사합니다. <b>공포 트랙</b>이 8/17 시연 대상으로 가장 구체화되어 있어
         &quot;장면 체험 재생&quot;(설명용, 정답 포함)과 &quot;방향 테스트&quot;(블라인드, 정답 숨김) 두 가지를 모두 제공하고,
         나머지 4개 트랙은 무드 프리뷰만 제공합니다.
+      </div>
+
+      <div className="banner" style={{ borderColor: "#e8c98a" }}>
+        🎬 <b>애니메틱 · 편집+사운드 증명용 (85초, 트랙 무관).</b> 그림은 회색 카드, 목소리는 시스템
+        TTS(유나) 그대로 두고, <b>편집 리듬과 공간음향만으로</b> 감정이 생기는지 확인하는 비인터랙티브
+        컷입니다. 20개 하드컷, 3번의 블랙 프레임 시간점프.
+        <div className="cta" style={{ marginTop: 10 }}>
+          <button onClick={() => setAnimaticActive(true)}>🎬 애니메틱 재생 (85초)</button>
+        </div>
       </div>
 
       <SeatSelector tracks={tracks} currentId={currentId} onSelect={setCurrentId} />
@@ -106,6 +117,7 @@ export default function Page() {
 
       <SceneStage active={sceneActive} onClose={() => setSceneActive(false)} />
       {sliceActive && <RomanceSlice onClose={() => setSliceActive(false)} />}
+      {animaticActive && <AnimaticStage onClose={() => setAnimaticActive(false)} />}
     </main>
   );
 }
