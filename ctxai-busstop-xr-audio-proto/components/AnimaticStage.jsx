@@ -29,27 +29,70 @@ const BADGE_CLASS = {
   INSERT: "badgeINSERT",
 };
 
+// 같은 배경 원화 1장을 샷 타입별로 다르게 잘라 "다른 카메라 앵글"처럼 보이게 한다.
+// 프리비즈에서 흔히 쓰는 방식 — 그림을 늘리는 대신 크롭·줌으로 컷을 만든다.
+// plate.png 구도: 카페·꽃집·서점은 왼쪽, 벤치·유리·노선표가 있는 정류장은
+// 오른쪽 — 그래서 인물·관객이 있는 컷(OTS/MS/CU)일수록 오른쪽으로 크롭한다.
+const FRAME_BY_TYPE = {
+  WS: { position: "center 45%", size: "cover" },
+  OTS: { position: "74% 60%", size: "120%" },
+  MS: { position: "82% 64%", size: "155%" },
+  CU: { position: "90% 58%", size: "230%" },
+  INSERT: { position: "20% 40%", size: "200%" },
+};
+
+const VOICE_MODES = [
+  { id: "system", label: "유나 TTS" },
+  { id: "eleven", label: "ElevenLabs" },
+  { id: "synth", label: "합성 보이스" },
+];
+
 export default function AnimaticStage({ onClose }) {
   const [started, setStarted] = useState(false);
   const [ended, setEnded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [shotIdx, setShotIdx] = useState(-1);
   const [subtitle, setSubtitle] = useState(null);
-  const [useRealVoice, setUseRealVoice] = useState(true);
+  // ElevenLabs 는 무료 플랜에서 API 합성이 막혀 있어(계정 등급 문제, 코드 문제 아님)
+  // 기본값을 유나로 둔다. 나중에 유료 전환하면 상단 토글로 바로 켤 수 있다.
+  const [voiceMode, setVoiceMode] = useState("system");
+  const [voiceNote, setVoiceNote] = useState(null);
 
   const audioRef = useRef(null);
   const voiceRef = useRef(null);
   const elapsedRef = useRef(0);
-  const rafRef = useRef(null);
-  const lastTsRef = useRef(0);
+  const rafRef = useRef(null); // setInterval id (이름은 유지, 이전 rAF 흔적)
   const firedRef = useRef(-1);
   const startsRef = useRef(shotStartTimes());
   const subKeyRef = useRef(0);
+  const voiceModeRef = useRef(voiceMode);
+  voiceModeRef.current = voiceMode;
 
   const support = voiceSupport();
 
+  /** ElevenLabs 로 발화 — 실패하면 유나 TTS 로 조용히 폴백한다 (타임라인은 안 멈춘다). */
+  const speakEleven = useCallback(async (text, emotion) => {
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text, emotion }),
+      });
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const data = await res.json();
+        return { ok: false, reason: data.reason || data.error || "unknown" };
+      }
+      const buf = await res.arrayBuffer();
+      await audioRef.current?.speakBuffer(buf);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: "network" };
+    }
+  }, []);
+
   const dispose = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (rafRef.current) window.clearInterval(rafRef.current);
     audioRef.current?.dispose();
     audioRef.current = null;
     voiceRef.current?.dispose();
@@ -80,7 +123,18 @@ export default function AnimaticStage({ onClose }) {
       if (shot.line) {
         subKeyRef.current += 1;
         setSubtitle({ text: shot.line.text, key: subKeyRef.current });
-        if (useRealVoice && voice) {
+        const mode = voiceModeRef.current;
+
+        if (mode === "eleven") {
+          setVoiceNote(null);
+          speakEleven(shot.line.text, shot.line.emotion).then((r) => {
+            if (!r.ok) {
+              const short = r.reason === "configured:false" || /API_KEY/.test(r.reason) ? "키 없음" : r.reason;
+              setVoiceNote(`ElevenLabs 실패(${short}) → 유나로 대체`);
+              voice?.speak(shot.line.text, shot.line.emotion);
+            }
+          });
+        } else if (mode === "system" && voice) {
           voice.speak(shot.line.text, shot.line.emotion);
         } else {
           audio?.speak(shot.line.text, { warm: 0.5 });
@@ -89,44 +143,40 @@ export default function AnimaticStage({ onClose }) {
         setSubtitle(null);
       }
     },
-    [useRealVoice]
+    [speakEleven]
   );
 
-  const tick = useCallback(
-    (ts) => {
-      if (!lastTsRef.current) lastTsRef.current = ts;
-      const dt = (ts - lastTsRef.current) / 1000;
-      lastTsRef.current = ts;
-      elapsedRef.current += dt;
-      const t = elapsedRef.current;
-      setElapsed(t);
+  // setInterval 기반 — requestAnimationFrame 은 자동화된/백그라운드 브라우저
+  // 컨텍스트에서 스로틀되어 멈출 수 있다 (실제로 이 환경에서 재현됨).
+  // RomanceSlice 가 이미 setInterval 로 검증했으므로 같은 패턴을 쓴다.
+  const tick = useCallback(() => {
+    elapsedRef.current += 0.1;
+    const t = elapsedRef.current;
+    setElapsed(t);
 
-      const { index } = shotAt(t);
-      if (index !== firedRef.current) {
-        firedRef.current = index;
-        setShotIdx(index);
-        fireShot(index);
-      }
+    const { index } = shotAt(t);
+    if (index !== firedRef.current) {
+      firedRef.current = index;
+      setShotIdx(index);
+      fireShot(index);
+    }
 
-      if (t >= TOTAL_SEC) {
-        setEnded(true);
-        audioRef.current?.stopAmbience();
-        return;
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    },
-    [fireShot]
-  );
+    if (t >= TOTAL_SEC) {
+      setEnded(true);
+      audioRef.current?.stopAmbience();
+      if (rafRef.current) window.clearInterval(rafRef.current);
+    }
+  }, [fireShot]);
 
   function start() {
     audioRef.current = createRomanceAudio();
     if (support.stt || support.tts) voiceRef.current = createVoice();
     elapsedRef.current = 0;
-    lastTsRef.current = 0;
     firedRef.current = -1;
     setStarted(true);
     setEnded(false);
-    rafRef.current = requestAnimationFrame(tick);
+    if (rafRef.current) window.clearInterval(rafRef.current);
+    rafRef.current = window.setInterval(tick, 100);
   }
 
   function replay() {
@@ -134,11 +184,10 @@ export default function AnimaticStage({ onClose }) {
     audioRef.current = createRomanceAudio();
     if (support.stt || support.tts) voiceRef.current = createVoice();
     elapsedRef.current = 0;
-    lastTsRef.current = 0;
     firedRef.current = -1;
     setEnded(false);
     setSubtitle(null);
-    rafRef.current = requestAnimationFrame(tick);
+    rafRef.current = window.setInterval(tick, 100);
   }
 
   const shot = shotIdx >= 0 ? SHOTS[shotIdx] : null;
@@ -149,15 +198,25 @@ export default function AnimaticStage({ onClose }) {
         <span style={{ color: "#666", fontSize: 11, fontFamily: "ui-monospace, Menlo, monospace" }}>
           애니메틱 · 편집+사운드 증명용 · 85초
         </span>
+        {voiceNote && <span className={styles.voiceNote}>{voiceNote}</span>}
         <div className={styles.spacer} />
-        <button
-          className={`${styles.toggle} ${useRealVoice ? styles.toggleOn : ""}`}
-          onClick={() => setUseRealVoice((v) => !v)}
-          title="유나(시스템 TTS) vs 합성 보이스"
-          disabled={started}
-        >
-          {useRealVoice ? "유나 TTS" : "합성 보이스"}
-        </button>
+        {VOICE_MODES.map((m) => (
+          <button
+            key={m.id}
+            className={`${styles.toggle} ${voiceMode === m.id ? styles.toggleOn : ""}`}
+            onClick={() => setVoiceMode(m.id)}
+            disabled={started}
+            title={
+              m.id === "eleven"
+                ? "실제 감정표현 TTS — API 키 필요, 없으면 유나로 자동 대체"
+                : m.id === "system"
+                ? "브라우저 시스템 음성 (유나)"
+                : "Web Audio 포먼트 합성(가짜 보이스)"
+            }
+          >
+            {m.label}
+          </button>
+        ))}
         <button className={styles.closeBtn} onClick={onClose}>
           닫기 ✕
         </button>
@@ -180,9 +239,18 @@ export default function AnimaticStage({ onClose }) {
             className={`${styles.card} ${shot.type === "BLACK" ? styles.black : ""} ${
               shot.type === "WHITEOUT" ? styles.whiteout : ""
             }`}
+            style={
+              shot.type !== "BLACK" && shot.type !== "WHITEOUT"
+                ? {
+                    backgroundPosition: FRAME_BY_TYPE[shot.type]?.position,
+                    backgroundSize: FRAME_BY_TYPE[shot.type]?.size,
+                  }
+                : undefined
+            }
           >
             {shot.type !== "BLACK" && shot.type !== "WHITEOUT" && (
               <>
+                <div className={styles.scrim} />
                 <span className={styles.shotNo}>SHOT {shot.id.toString().padStart(2, "0")}</span>
                 <span className={styles.timecode}>{mmss(elapsed)}</span>
                 <div className={`${styles.badge} ${styles[BADGE_CLASS[shot.type]] || ""}`}>{shot.type}</div>
