@@ -1,0 +1,117 @@
+{
+  "manifestVersion": "1.0",
+  "updatedAt": "2026-08-07",
+  "assetRoot": "assets/",
+  "genres": ["H", "R", "C", "F"],
+
+  "lighting": {
+    "presets": {
+      "neutral": "lp_neutral",
+      "H": "lp_H",
+      "R": "lp_R",
+      "C": "lp_C",
+      "F": "lp_F"
+    },
+    "transitions": [
+      { "atSec": 0, "to": "neutral", "durationSec": 0.1, "note": "체험 시작" },
+      { "atSec": 100, "to": "event", "durationSec": 4, "note": "1:40 — 중립 → 사건 장르" },
+      { "atSec": 310, "to": "mix", "durationSec": 6, "note": "5:10 — 사건 → 사건+태도 혼합" }
+    ]
+  },
+
+  "models": {
+    "structure": [
+      { "id": "shelter", "file": "prop_shelter.glb", "status": "missing", "note": "정류장 구조물. 8/12" },
+      { "id": "bench", "file": "prop_bench.glb", "status": "missing", "note": "피벗 = 착석 지점 바닥 (0,0,0)" },
+      { "id": "silhouette", "file": "prop_silhouette.glb", "status": "missing", "note": "옆사람 실루엣. 8/15. 애니메이션 없어도 됨" }
+    ],
+
+    "sign": {
+      "model": { "file": "prop_sign.glb", "status": "missing", "note": "노선도 표지판. 8/12. 시연 필수" },
+      "nameplateMaterial": "mat_nameplate",
+      "nameplate": {
+        "colorHex": "#F5F2E8",
+        "fontFamily": "Pretendard",
+        "fontWeight": "Bold",
+        "heightRatio": 0.45,
+        "visibleFromSec": 110
+      }
+    },
+
+    "npc": {
+      "model": { "file": "npc_companion.glb", "status": "missing", "note": "9월" },
+      "headBone": "Head",
+      "clips": {
+        "neutral": { "file": "att_neutral.glb", "status": "missing", "note": "9월. 사건 대사 구간용" },
+        "H": { "file": "att_horror.glb", "status": "missing", "note": "9월" },
+        "R": { "file": "att_romance.glb", "status": "missing", "note": "9월" },
+        "C": { "file": "att_comedy.glb", "status": "missing", "note": "9월" },
+        "F": { "file": "att_fantasy.glb", "status": "missing", "note": "9월" }
+      },
+      "runtimeRanges": {
+        "gazeContact": [0.0, 1.0],
+        "benchDistanceM": [0.5, 1.4],
+        "silenceSec": [0.4, 2.5],
+        "voiceGain": [0.75, 1.1]
+      }
+    },
+
+    "genreProps": {
+      "H": { "file": "prop_horror.glb", "status": "missing" },
+      "R": { "file": "prop_romance.glb", "status": "missing" },
+      "C": { "file": "prop_comedy.glb", "status": "missing" },
+      "F": { "file": "prop_fantasy.glb", "status": "missing" }
+    },
+
+    "bus": {
+      "H": { "file": "bus_horror.glb", "status": "missing", "note": "10월" },
+      "R": { "file": "bus_romance.glb", "status": "missing", "note": "10월" },
+      "C": { "file": "bus_comedy.glb", "status": "missing", "note": "10월" },
+      "F": { "file": "bus_fantasy.glb", "status": "missing", "note": "10월" }
+    }
+  },
+
+  "audio": {
+    "bgm": {
+      "H": { "file": "bgm_H.mp3", "status": "missing", "loopSec": 30, "lufsIntegrated": null, "truePeakDb": null, "note": "8/8 초안" },
+      "R": { "file": "bgm_R.mp3", "status": "missing", "loopSec": 30, "lufsIntegrated": null, "truePeakDb": null, "note": "8/8 초안" },
+      "C": { "file": "bgm_C.mp3", "status": "missing", "loopSec": 30, "lufsIntegrated": null, "truePeakDb": null, "note": "8/8 초안" },
+      "F": { "file": "bgm_F.mp3", "status": "missing", "loopSec": 30, "lufsIntegrated": null, "truePeakDb": null, "note": "8/8 초안" }
+    },
+
+    "voice": {
+      "voiceId": "",
+      "model": "eleven_v3",
+      "emotionTagsWork": null,
+      "lines": {
+        "q1": { "file": "vo_q1.mp3", "status": "missing", "note": "당신은 무엇을 기다리고 있습니까? / 8/11" },
+        "reprompt": { "file": "vo_reprompt.mp3", "status": "missing", "note": "조금 더 말씀해 주시겠어요. / 8/11" },
+        "filler1": { "file": "vo_filler1.mp3", "status": "missing", "note": "...음. / 8/11" },
+        "filler2": { "file": "vo_filler2.mp3", "status": "missing", "note": "...그렇군요. / 8/11" }
+      },
+      "eventLines": {
+        "H": { "file": "vo_event_H.mp3", "status": "missing", "note": "태도 중립" },
+        "R": { "file": "vo_event_R.mp3", "status": "missing", "note": "태도 중립" },
+        "C": { "file": "vo_event_C.mp3", "status": "missing", "note": "태도 중립" },
+        "F": { "file": "vo_event_F.mp3", "status": "missing", "note": "태도 중립" }
+      }
+    },
+
+    "sfx": {
+      "inhale": { "file": "sfx_inhale.wav", "status": "missing", "note": "8/11. 이 목록에서 가장 중요" }
+    },
+
+    "busSfx": {
+      "H": { "file": "bus_horror.wav", "status": "missing", "note": "10월. 모노" },
+      "R": { "file": "bus_romance.wav", "status": "missing", "note": "10월. 모노" },
+      "C": { "file": "bus_comedy.wav", "status": "missing", "note": "10월. 모노" },
+      "F": { "file": "bus_fantasy.wav", "status": "missing", "note": "10월. 모노" }
+    }
+  },
+
+  "dialogue": {
+    "source": "dialogue/lines.csv",
+    "combinationCount": 16,
+    "voiceOutputDir": "assets/vo/"
+  }
+}

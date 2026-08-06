@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ctxai.co.kr/busstop/manifest.schema.json",
+  "title": "정류장 XR — 에셋 매니페스트",
+  "description": "논리 키(코드가 부르는 이름) → 실제 파일 이름 매핑. 파일 이름을 바꾸고 싶으면 이 파일의 file 값만 고치면 됩니다. 코드는 논리 키만 압니다.",
+  "type": "object",
+  "required": ["manifestVersion", "assetRoot", "genres", "lighting", "models", "audio", "dialogue"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "genreCode": {
+      "description": "H=공포 R=로맨스 C=코미디 F=판타지",
+      "enum": ["H", "R", "C", "F"]
+    },
+
+    "status": {
+      "description": "missing = 아직 없음(런타임이 회색 상자/무음으로 대체). draft = 초안. final = 확정.",
+      "enum": ["missing", "draft", "final"],
+      "default": "missing"
+    },
+
+    "asset": {
+      "type": "object",
+      "required": ["file", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "assetRoot 기준 상대 경로. status가 missing이면 빈 문자열 허용."
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "note": { "type": "string", "description": "자유 메모. 코드는 읽지 않음." }
+      }
+    },
+
+    "glb": {
+      "allOf": [{ "$ref": "#/$defs/asset" }],
+      "properties": {
+        "file": { "type": "string", "pattern": "^$|\\.glb$" }
+      }
+    },
+
+    "genreGlbMap": {
+      "type": "object",
+      "required": ["H", "R", "C", "F"],
+      "additionalProperties": false,
+      "properties": {
+        "H": { "$ref": "#/$defs/glb" },
+        "R": { "$ref": "#/$defs/glb" },
+        "C": { "$ref": "#/$defs/glb" },
+        "F": { "$ref": "#/$defs/glb" }
+      }
+    },
+
+    "bgmTrack": {
+      "type": "object",
+      "required": ["file", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "pattern": "^$|\\.(mp3|wav)$" },
+        "status": { "$ref": "#/$defs/status" },
+        "note": { "type": "string" },
+        "loopSec": {
+          "type": "number",
+          "description": "루프 길이(초). 규격 30초.",
+          "default": 30
+        },
+        "lufsIntegrated": {
+          "type": ["number", "null"],
+          "description": "실측 integrated LUFS. 네 트랙이 같은 값이어야 함(권장 -20). 미측정이면 null.",
+          "default": null
+        },
+        "truePeakDb": {
+          "type": ["number", "null"],
+          "description": "실측 트루 피크 dBFS. 목표 -9. 못 맞춰도 실측값만 적어 주면 개발이 리미터로 받음(D7). 미측정이면 null.",
+          "default": null
+        }
+      }
+    }
+  },
+
+  "properties": {
+    "manifestVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "updatedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "YYYY-MM-DD"
+    },
+    "assetRoot": {
+      "type": "string",
+      "description": "모든 file 경로의 기준. 예: \"assets/\"",
+      "default": "assets/"
+    },
+    "genres": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/genreCode" },
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "description": "순서 고정. 코드의 점수 배열 순서와 같음."
+    },
+
+    "lighting": {
+      "type": "object",
+      "description": "프리셋 값 자체는 PlayCanvas 에디터에서 저장됩니다(D2). 여기에는 이름과 전환 시각만 적습니다.",
+      "required": ["presets", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "presets": {
+          "type": "object",
+          "required": ["neutral", "H", "R", "C", "F"],
+          "additionalProperties": false,
+          "description": "논리 키 → 에디터에 저장된 프리셋 이름. 조합 프리셋(lp_R-H 등)은 만들지 않습니다.",
+          "properties": {
+            "neutral": { "type": "string", "default": "lp_neutral" },
+            "H": { "type": "string", "default": "lp_H" },
+            "R": { "type": "string", "default": "lp_R" },
+            "C": { "type": "string", "default": "lp_C" },
+            "F": { "type": "string", "default": "lp_F" }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "description": "체험 10분 가정(D11)에서 나온 값. 체험 시간이 바뀌면 atSec만 다시 계산합니다.",
+          "items": {
+            "type": "object",
+            "required": ["atSec", "to", "durationSec"],
+            "additionalProperties": false,
+            "properties": {
+              "atSec": { "type": "number", "minimum": 0 },
+              "to": { "enum": ["neutral", "event", "mix"] },
+              "durationSec": { "type": "number", "exclusiveMinimum": 0 },
+              "note": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "models": {
+      "type": "object",
+      "required": ["structure", "sign", "npc", "genreProps", "bus"],
+      "additionalProperties": false,
+      "properties": {
+        "structure": {
+          "type": "array",
+          "description": "정류장 구조물. 개수 자유. id는 코드가 부르는 이름.",
+          "items": {
+            "type": "object",
+            "required": ["id", "file", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+              "file": { "type": "string", "pattern": "^$|\\.glb$" },
+              "status": { "$ref": "#/$defs/status" },
+              "note": { "type": "string" }
+            }
+          }
+        },
+
+        "sign": {
+          "type": "object",
+          "description": "노선도 표지판. 관객이 말한 단어를 이름 자리에 실시간으로 그립니다(§2.6).",
+          "required": ["model", "nameplateMaterial", "nameplate"],
+          "additionalProperties": false,
+          "properties": {
+            "model": { "$ref": "#/$defs/glb" },
+            "nameplateMaterial": {
+              "type": "string",
+              "description": "이름 자리 평면 사각형의 머티리얼 이름. 이 면의 UV가 0~1 전체로 펴져 있어야 함. 코드가 이 머티리얼의 텍스처를 런타임에 교체합니다."
+            },
+            "nameplate": {
+              "type": "object",
+              "description": "글자 렌더 값. 개발이 정합니다(D5). 아트는 수정하지 않아도 됩니다.",
+              "required": ["colorHex", "fontFamily", "fontWeight", "heightRatio"],
+              "additionalProperties": false,
+              "properties": {
+                "colorHex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$", "default": "#F5F2E8" },
+                "fontFamily": { "type": "string", "default": "Pretendard" },
+                "fontWeight": { "type": "string", "default": "Bold" },
+                "heightRatio": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1,
+                  "default": 0.45,
+                  "description": "이름 자리 사각형 높이 대비 글자 높이. T2에서 안 읽히면 개발이 올립니다."
+                },
+                "visibleFromSec": { "type": "number", "default": 110, "description": "1분 50초부터 끝까지 계속 보임." }
+              }
+            }
+          }
+        },
+
+        "npc": {
+          "type": "object",
+          "description": "옆사람. 얼굴 표정은 만들지 않습니다(D4).",
+          "required": ["model", "headBone", "clips"],
+          "additionalProperties": false,
+          "properties": {
+            "model": { "$ref": "#/$defs/glb" },
+            "headBone": {
+              "type": "string",
+              "default": "Head",
+              "description": "시선 방향을 코드가 섞을 본 이름. 리그에서 이 이름으로 노출되어야 함."
+            },
+            "clips": {
+              "type": "object",
+              "description": "태도 애니메이션 5종. 루트 모션 없음, 루프. 9월 납품.",
+              "required": ["neutral", "H", "R", "C", "F"],
+              "additionalProperties": false,
+              "properties": {
+                "neutral": { "$ref": "#/$defs/glb" },
+                "H": { "$ref": "#/$defs/glb" },
+                "R": { "$ref": "#/$defs/glb" },
+                "C": { "$ref": "#/$defs/glb" },
+                "F": { "$ref": "#/$defs/glb" }
+              }
+            },
+            "runtimeRanges": {
+              "type": "object",
+              "description": "코드가 제어하는 범위(§2.7). 아트는 신경 쓰지 않아도 됩니다.",
+              "additionalProperties": false,
+              "properties": {
+                "gazeContact": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "default": [0.0, 1.0] },
+                "benchDistanceM": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "default": [0.5, 1.4] },
+                "silenceSec": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "default": [0.4, 2.5] },
+                "voiceGain": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "default": [0.75, 1.10] }
+              }
+            }
+          }
+        },
+
+        "genreProps": {
+          "allOf": [{ "$ref": "#/$defs/genreGlbMap" }],
+          "description": "장르 소품. prop_{장르}.glb"
+        },
+
+        "bus": {
+          "allOf": [{ "$ref": "#/$defs/genreGlbMap" }],
+          "description": "버스 3D. bus_{장르}.glb. 10월 납품."
+        }
+      }
+    },
+
+    "audio": {
+      "type": "object",
+      "required": ["bgm", "voice", "sfx", "busSfx"],
+      "additionalProperties": false,
+      "properties": {
+        "bgm": {
+          "type": "object",
+          "description": "배경 트랙 4종. 네 개가 동시에 재생되고 볼륨만 바뀝니다(§2.5).",
+          "required": ["H", "R", "C", "F"],
+          "additionalProperties": false,
+          "properties": {
+            "H": { "$ref": "#/$defs/bgmTrack" },
+            "R": { "$ref": "#/$defs/bgmTrack" },
+            "C": { "$ref": "#/$defs/bgmTrack" },
+            "F": { "$ref": "#/$defs/bgmTrack" }
+          }
+        },
+
+        "voice": {
+          "type": "object",
+          "description": "전부 같은 목소리여야 합니다. voiceId 하나로 고정.",
+          "required": ["voiceId", "model", "lines"],
+          "additionalProperties": false,
+          "properties": {
+            "voiceId": {
+              "type": "string",
+              "description": "ElevenLabs Voice Design으로 만들어 「내 목소리」에 저장한 ID. 사운드가 8/8에 개발로 공유."
+            },
+            "model": { "type": "string", "default": "eleven_v3" },
+            "emotionTagsWork": {
+              "type": ["boolean", "null"],
+              "default": null,
+              "description": "v3 감정 태그가 한국어에서 먹는가. 8/11 T6 결과. null = 미확인."
+            },
+            "lines": {
+              "type": "object",
+              "description": "고정 문장. 전시 중에는 실시간 합성하지 않고 미리 뽑은 파일을 씁니다.",
+              "required": ["q1", "reprompt", "filler1", "filler2"],
+              "additionalProperties": false,
+              "properties": {
+                "q1": { "$ref": "#/$defs/asset" },
+                "reprompt": { "$ref": "#/$defs/asset" },
+                "filler1": { "$ref": "#/$defs/asset" },
+                "filler2": { "$ref": "#/$defs/asset" }
+              }
+            },
+            "eventLines": {
+              "type": "object",
+              "description": "사건 대사 4종. 태도 중립이어야 함(§2.8).",
+              "additionalProperties": false,
+              "properties": {
+                "H": { "$ref": "#/$defs/asset" },
+                "R": { "$ref": "#/$defs/asset" },
+                "C": { "$ref": "#/$defs/asset" },
+                "F": { "$ref": "#/$defs/asset" }
+              }
+            }
+          }
+        },
+
+        "sfx": {
+          "type": "object",
+          "required": ["inhale"],
+          "additionalProperties": false,
+          "properties": {
+            "inhale": {
+              "allOf": [{ "$ref": "#/$defs/asset" }],
+              "description": "들숨. 관객 발화가 끝난 뒤 결과가 나오기까지의 2초를 덮습니다. 사운드 목록에서 가장 중요."
+            }
+          }
+        },
+
+        "busSfx": {
+          "type": "object",
+          "description": "버스 소리 4종. 모노로 주세요 — 좌→우 공간화는 코드가 합니다. 10월.",
+          "required": ["H", "R", "C", "F"],
+          "additionalProperties": false,
+          "properties": {
+            "H": { "$ref": "#/$defs/asset" },
+            "R": { "$ref": "#/$defs/asset" },
+            "C": { "$ref": "#/$defs/asset" },
+            "F": { "$ref": "#/$defs/asset" }
+          }
+        }
+      }
+    },
+
+    "dialogue": {
+      "type": "object",
+      "description": "대사 텍스트는 스프레드시트가 원본입니다. 개발 배치 스크립트가 이 표를 읽어 음성을 일괄 합성합니다.",
+      "required": ["source", "combinationCount", "voiceOutputDir"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "description": "대사 스프레드시트를 내보낸 CSV 경로." },
+        "combinationCount": {
+          "type": "integer",
+          "const": 16,
+          "description": "사건 4 × 태도 4 = 16벌. 다른 문서에 다르게 적힌 곳이 있으면 16으로 맞춥니다."
+        },
+        "voiceOutputDir": { "type": "string", "description": "배치 합성 결과가 떨어지는 디렉터리." }
+      }
+    }
+  }
+}
