@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ctxai.co.kr/busstop/preset.schema.json",
+  "title": "정류장 — 조명 프리셋",
+  "description": "PlayCanvas 에디터에서 preset-tool.js 로 저장한 파일. 아트가 손으로 쓰지 않습니다.",
+  "type": "object",
+  "required": ["presetVersion", "name", "scene", "lights"],
+
+  "$defs": {
+    "color": {
+      "type": "array",
+      "items": { "type": "number", "minimum": 0 },
+      "minItems": 3,
+      "maxItems": 4,
+      "description": "[r, g, b] 0~1"
+    },
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+
+  "properties": {
+    "presetVersion": { "const": "1.0" },
+    "name": {
+      "enum": ["lp_neutral", "lp_H", "lp_R", "lp_C", "lp_F"],
+      "description": "조합 프리셋(lp_R-H 등)은 만들지 않습니다. 코드가 두 장을 섞습니다."
+    },
+    "capturedAt": { "type": "string" },
+    "mixedFrom": {
+      "type": "array",
+      "description": "lerpPreset() 이 만든 중간 프리셋에만 있습니다. 에디터 저장물에는 없습니다.",
+      "items": {}
+    },
+
+    "scene": {
+      "type": "object",
+      "description": "키가 없으면 런타임이 그 값을 건드리지 않습니다. 에디터 버전에 따라 읽히는 키가 다를 수 있습니다.",
+      "properties": {
+        "ambient": { "$ref": "#/$defs/color" },
+        "exposure": { "type": "number", "minimum": 0 },
+        "tonemapping": { "type": "integer", "description": "이산값 — 섞지 않고 가까운 쪽을 씁니다." },
+        "gamma": { "type": "integer", "description": "이산값." },
+        "fogType": {
+          "description": "0=none 1=linear 2=exp 3=exp2 (또는 문자열). 이산값 — 섞지 않습니다.",
+          "type": ["integer", "string"]
+        },
+        "fogColor": { "$ref": "#/$defs/color" },
+        "fogDensity": { "type": "number", "minimum": 0 },
+        "fogStart": { "type": "number" },
+        "fogEnd": { "type": "number" },
+        "skyIntensity": { "type": "number", "minimum": 0 },
+        "skyMip": { "type": "number" },
+        "skyRotation": { "$ref": "#/$defs/vec3" }
+      }
+    },
+
+    "lights": {
+      "type": "array",
+      "description": "프리셋끼리 name 이 같아야 짝이 맞습니다. 한쪽에만 있는 조명은 반대쪽에서 intensity 0 으로 취급합니다.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "엔티티 이름. 이것으로 짝을 맞춥니다." },
+          "resourceId": { "type": ["string", "null"] },
+          "enabled": { "type": "boolean" },
+          "componentEnabled": { "type": "boolean" },
+          "type": { "type": "string", "description": "directional / omni / spot. 이산값 — 섞지 않습니다." },
+          "color": { "$ref": "#/$defs/color" },
+          "intensity": { "type": "number", "minimum": 0 },
+          "range": { "type": "number", "minimum": 0 },
+          "falloffMode": { "type": "integer", "description": "이산값." },
+          "innerConeAngle": { "type": "number" },
+          "outerConeAngle": { "type": "number" },
+          "castShadows": { "type": "boolean", "description": "이산값." },
+          "shadowIntensity": { "type": "number" },
+          "shadowBias": { "type": "number" },
+          "shadowDistance": { "type": "number" },
+          "position": { "$ref": "#/$defs/vec3" },
+          "rotation": { "$ref": "#/$defs/vec3" }
+        }
+      }
+    },
+
+    "_probe": {
+      "type": "object",
+      "description": "저장 당시 어떤 에디터 API 경로가 잡혔는지. 값이 안 읽힐 때 개발이 이걸 보고 고칩니다.",
+      "properties": {
+        "entities": { "type": "string" },
+        "settings": { "type": "string" },
+        "scenePaths": { "type": "object" },
+        "lightCount": { "type": "integer" },
+        "editorVersion": { "type": "string" }
+      }
+    }
+  }
+}
