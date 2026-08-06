@@ -88,12 +88,6 @@
         "reprompt": { "file": "vo_reprompt.mp3", "status": "missing", "note": "조금 더 말씀해 주시겠어요. / 8/11" },
         "filler1": { "file": "vo_filler1.mp3", "status": "missing", "note": "...음. / 8/11" },
         "filler2": { "file": "vo_filler2.mp3", "status": "missing", "note": "...그렇군요. / 8/11" }
-      },
-      "eventLines": {
-        "H": { "file": "vo_event_H.mp3", "status": "missing", "note": "태도 중립" },
-        "R": { "file": "vo_event_R.mp3", "status": "missing", "note": "태도 중립" },
-        "C": { "file": "vo_event_C.mp3", "status": "missing", "note": "태도 중립" },
-        "F": { "file": "vo_event_F.mp3", "status": "missing", "note": "태도 중립" }
       }
     },
 

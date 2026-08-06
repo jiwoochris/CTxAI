@@ -290,17 +290,6 @@
                 "filler1": { "$ref": "#/$defs/asset" },
                 "filler2": { "$ref": "#/$defs/asset" }
               }
-            },
-            "eventLines": {
-              "type": "object",
-              "description": "사건 대사 4종. 태도 중립이어야 함(§2.8).",
-              "additionalProperties": false,
-              "properties": {
-                "H": { "$ref": "#/$defs/asset" },
-                "R": { "$ref": "#/$defs/asset" },
-                "C": { "$ref": "#/$defs/asset" },
-                "F": { "$ref": "#/$defs/asset" }
-              }
             }
           }
         },
@@ -338,7 +327,10 @@
       "required": ["source", "combinationCount", "voiceOutputDir"],
       "additionalProperties": false,
       "properties": {
-        "source": { "type": "string", "description": "대사 스프레드시트를 내보낸 CSV 경로." },
+        "source": {
+          "type": "string",
+          "description": "대사 스프레드시트를 내보낸 CSV 경로. 사건 대사 · 문장 층 16벌 · 콜백이 전부 여기 들어 있습니다. 개별 음성 파일은 매니페스트에 나열하지 않습니다 — 배치 스크립트가 이 표의 파일명 열을 그대로 씁니다."
+        },
         "combinationCount": {
           "type": "integer",
           "const": 16,
