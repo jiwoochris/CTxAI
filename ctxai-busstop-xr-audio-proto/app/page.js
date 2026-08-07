@@ -279,6 +279,16 @@ function Row({ row, onReplace }) {
         <div className={s.chips}>
           {chips.slice(0, 3).map((c, i) => <span key={i}>{c}</span>)}
         </div>
+        {row.templateUrl && (
+          <a
+            className={s.template}
+            href={row.templateUrl}
+            download={row.templateName || true}
+            onClick={(e) => e.stopPropagation()}
+          >
+            빈 양식 받기
+          </a>
+        )}
         <button
           className={s.replace}
           onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}

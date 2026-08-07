@@ -88,7 +88,9 @@ export const SLOTS = [
   // ── 기획 ──────────────────────────────────────────────
   { id: "dialogue.csv", path: "dialogue.source", kind: "dialogue",
     file: "대사양식.csv", label: "대사 표", role: "기획", due: "8/11", aug: true,
-    hint: "Sheets 에서 CSV 로 내보내 올려 주세요" },
+    hint: "Sheets 에서 CSV 로 내보내 올려 주세요",
+    templateUrl: "/templates/dialogue-template.csv",
+    templateName: "대사양식.csv" },
 ];
 
 export const SLOT_BY_ID = Object.fromEntries(SLOTS.map((s) => [s.id, s]));
