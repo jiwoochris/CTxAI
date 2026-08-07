@@ -16,6 +16,7 @@
 }
 .head h1 { font-size: 24px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
 .head p { margin: 0; font-size: 13.5px; max-width: 48ch; }
+.guideLink { color: #9aa8c0; white-space: nowrap; }
 
 .counts { display: flex; gap: 20px; }
 .counts > div { text-align: right; }

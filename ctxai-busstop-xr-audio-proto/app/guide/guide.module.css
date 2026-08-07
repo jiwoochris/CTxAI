@@ -1,0 +1,57 @@
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+  color: #e8e8ea;
+  font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+}
+
+.dim { color: #8c9098; }
+
+.doc :global(h1) {
+  font-size: 24px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em;
+}
+.doc :global(h2) {
+  font-size: 18px; font-weight: 700; margin: 32px 0 10px;
+  padding-top: 16px; border-top: 1px solid #2a2d33;
+}
+.doc :global(h2:first-of-type) { border-top: none; padding-top: 0; margin-top: 20px; }
+.doc :global(h3) { font-size: 15px; font-weight: 700; margin: 18px 0 8px; color: #cfd3d9; }
+
+.doc :global(p) { margin: 0 0 12px; font-size: 14.5px; }
+.doc :global(strong) { color: #f0f1f3; font-weight: 700; }
+.doc :global(em) { color: #a8adb4; font-style: italic; }
+
+.doc :global(a) { color: #7fb0e0; text-decoration: none; }
+.doc :global(a:hover) { text-decoration: underline; }
+
+.doc :global(hr) { border: none; border-top: 1px solid #2a2d33; margin: 22px 0; }
+
+.doc :global(ul), .doc :global(ol) {
+  margin: 0 0 14px; padding-left: 22px; font-size: 14.5px;
+}
+.doc :global(li) { margin: 4px 0; }
+
+.doc :global(code) {
+  font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px;
+  background: #24272e; padding: 1px 6px; border-radius: 4px; color: #c8ccd2;
+}
+.doc :global(pre) {
+  background: #16181d; border: 1px solid #2a2d33; border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; margin: 0 0 14px;
+}
+.doc :global(pre code) { background: none; padding: 0; }
+
+.doc :global(table) {
+  width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 13.5px;
+  display: block; overflow-x: auto;
+}
+.doc :global(th), .doc :global(td) {
+  border: 1px solid #2a2d33; padding: 7px 10px; text-align: left;
+}
+.doc :global(th) { background: #1b1d22; color: #cfd3d9; font-weight: 700; }
+.doc :global(tr:nth-child(even) td) { background: #16181d; }
+
+.foot { margin-top: 40px; font-size: 13px; }
+.foot a { color: #9aa8c0; text-decoration: none; }
+.foot a:hover { text-decoration: underline; }
