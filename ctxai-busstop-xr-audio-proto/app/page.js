@@ -8,6 +8,7 @@ import DirectionTest from "@/components/DirectionTest";
 import ResultsTable from "@/components/ResultsTable";
 import RomanceSlice from "@/components/RomanceSlice";
 import AnimaticStage from "@/components/AnimaticStage";
+import Link from "next/link";
 import { tracks } from "@/lib/tracks";
 import { getAudioContext, moodPreview } from "@/lib/audio";
 
@@ -57,6 +58,13 @@ export default function Page() {
         <div className="cta" style={{ marginTop: 10 }}>
           <button onClick={() => setAnimaticActive(true)}>🎬 애니메틱 재생 (85초)</button>
         </div>
+      </div>
+
+      <div className="banner">
+        🎙 <b>목소리 → 장르 채점 파이프라인은 별도 확인 페이지로 옮겼습니다.</b>{" "}
+        <Link href="/verify" style={{ color: "var(--accent-color, #5aa9a3)" }}>
+          /verify 에서 1단계·2단계 확인 →
+        </Link>
       </div>
 
       <SeatSelector tracks={tracks} currentId={currentId} onSelect={setCurrentId} />

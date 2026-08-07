@@ -1,0 +1,62 @@
+.wrap {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+  color: #e8e8ea;
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+}
+
+.wrap h1 { font-size: 24px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
+.dim { color: #8c9098; }
+.wrap p { margin: 0 0 10px; }
+
+.step {
+  margin-top: 28px; padding: 20px 22px;
+  background: #1b1d22; border: 1px solid #333842; border-radius: 12px;
+}
+.step h2 {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 16px; font-weight: 700; margin: 0 0 8px;
+}
+.step h2 span {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #2f7d4f; color: #fff; font-size: 13px; flex: none;
+}
+.step p { font-size: 13.5px; }
+
+.dragRow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.bm {
+  display: inline-block; padding: 11px 20px; border-radius: 8px;
+  background: #d8c07a; color: #21232a; font-weight: 700; font-size: 14.5px;
+  text-decoration: none; cursor: grab; border: 1px solid #b9a05c;
+  box-shadow: 0 2px 10px rgba(0,0,0,.3);
+}
+.bm:active { cursor: grabbing; }
+.arrow { font-size: 12.5px; color: #8c9098; }
+
+.alt {
+  margin-top: 20px; padding: 18px 22px;
+  border: 1px solid #2f333b; border-radius: 12px;
+}
+.alt h3 { font-size: 14px; font-weight: 700; margin: 0 0 8px; color: #b6bcc4; }
+.alt ol, .alt ul { margin: 8px 0 12px; padding-left: 20px; font-size: 13.5px; }
+.alt li { margin: 4px 0; }
+
+.list { list-style: none; padding-left: 0; }
+.list li { padding: 3px 0; }
+
+.wrap code {
+  font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12.5px;
+  background: #24272e; padding: 1px 6px; border-radius: 4px; color: #c8ccd2;
+}
+
+.copy {
+  padding: 9px 18px; border-radius: 7px; border: 1px solid #3d434d;
+  background: #24272e; color: #e8e8ea; font: 600 13px inherit; cursor: pointer;
+}
+.copy:hover { border-color: #5a6270; background: #2a2e36; }
+
+.foot { margin-top: 36px; font-size: 13px; }
+.foot a { color: #9aa8c0; text-decoration: none; }
+.foot a:hover { text-decoration: underline; }
