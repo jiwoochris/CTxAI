@@ -38,8 +38,16 @@ export default function ToolPage() {
       </header>
 
       <section className={s.step}>
-        <h2><span>1</span> 아래 버튼을 북마크 바로 끌어다 놓으세요</h2>
-        <p className={s.dim}>한 번만 하시면 됩니다. 북마크 바가 안 보이면 <b>⌘⇧B</b> (Windows는 <b>Ctrl+Shift+B</b>).</p>
+        <h2><span>1</span> 아래 버튼을 북마크 바로 끌어다 놓으세요 (한 번만)</h2>
+        <p className={s.dim}>
+          버튼을 그냥 누르는 걸로는 안 됩니다 — 브라우저가 웹페이지에서 클릭 한 번으로
+          북마크를 만드는 걸 막아 놔서, 이 방법(끌어다 놓기)이 유일합니다. 딱 한 번만 하시면 됩니다.
+        </p>
+        <ol className={s.miniSteps}>
+          <li>화면 위쪽에 북마크 바가 보이는지 확인하세요. 안 보이면 <b>⌘⇧B</b> (Windows는 <b>Ctrl+Shift+B</b>)</li>
+          <li>아래 노란 버튼을 마우스로 누른 채로 그 북마크 바까지 끌고 가서 손을 떼세요</li>
+          <li>북마크 바에 <b>💡 정류장 프리셋</b>이 생기면 성공입니다</li>
+        </ol>
         <div className={s.dragRow}>
           <a className={s.bm} href={bookmarklet} onClick={(e) => e.preventDefault()}>
             💡 정류장 프리셋
@@ -49,13 +57,15 @@ export default function ToolPage() {
       </section>
 
       <section className={s.step}>
-        <h2><span>2</span> 에디터에서 누르세요</h2>
+        <h2><span>2</span> 조명을 저장하고 싶을 때마다 누르세요</h2>
         <p>
-          PlayCanvas <b>편집 화면</b>을 열고 방금 만든 북마크를 누르면
-          오른쪽 위에 패널이 뜹니다. 프리셋을 고르고 <b>저장</b>만 누르면 끝입니다.
+          PlayCanvas <b>편집 화면</b>(Launch 미리보기 아님)에서 조명·안개 등을 조절하다가,
+          <b> 저장하고 싶은 순간에</b> 방금 만든 북마크를 누르세요. 오른쪽 위에 작은 창이 뜨고,
+          거기서 프리셋 이름을 고르고 <b>저장</b> 버튼만 누르면 개발에게 바로 전달됩니다.
         </p>
         <p className={s.dim}>
-          Launch(미리보기) 화면 말고 편집 화면이어야 합니다. 새로고침하면 다시 눌러 주세요.
+          한 번 누르고 끝나는 게 아닙니다 — 조명을 계속 만지는 동안 저장하고 싶을 때마다
+          다시 누르시면 됩니다. 페이지를 새로고침하면 창이 사라지니, 그럴 때도 다시 눌러 주세요.
         </p>
       </section>
 
