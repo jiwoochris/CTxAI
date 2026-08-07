@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "버스정류장 XR — 오디오 프로토타입",
-  description: "기다림 버스정류장 XR 5-Track 오디오 프로토타입 · 방향 지각 테스트",
+  title: "정류장 — 프로젝트 작업 툴",
+  description: "아트·사운드·기획이 파일을 올리고 규격을 확인하는 곳",
 };
 
 export default function RootLayout({ children }) {
