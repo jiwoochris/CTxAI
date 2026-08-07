@@ -25,18 +25,34 @@ const REMOTE = !!(URL_BASE && SERVICE_KEY);
 // SDK 를 넣지 않고 REST 를 직접 씁니다. 쓰는 동작이 네 개뿐이라
 // 의존성을 하나 더 들이는 것보다 이쪽이 가볍습니다.
 
+// 한글 파일명(대사양식.csv 등)이 그대로 들어오므로 세그먼트별로 인코딩합니다.
+// "/" 는 경로 구분자로 남겨야 해서 통째로 encodeURIComponent 하면 안 됩니다.
+function encodeKey(key) {
+  return key.split("/").map(encodeURIComponent).join("/");
+}
+
 function storageUrl(key) {
-  return `${URL_BASE}/storage/v1/object/${BUCKET}/${key}`;
+  return `${URL_BASE}/storage/v1/object/${BUCKET}/${encodeKey(key)}`;
+}
+
+// service_role 키가 새 형식(sb_secret_...)이면 JWT 가 아니라서, Storage 서버가
+// Authorization 만으로 파싱하면 "Invalid Compact JWS" 로 거부합니다.
+// apikey 헤더를 같이 보내야 합니다 — supabase-js 도 내부적으로 둘 다 보냅니다.
+function authHeaders(extra) {
+  return {
+    Authorization: `Bearer ${SERVICE_KEY}`,
+    apikey: SERVICE_KEY,
+    ...extra,
+  };
 }
 
 async function remotePut(key, bytes, contentType) {
   const res = await fetch(storageUrl(key), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${SERVICE_KEY}`,
+    headers: authHeaders({
       "Content-Type": contentType || "application/octet-stream",
       "x-upsert": "true",
-    },
+    }),
     body: bytes,
   });
   if (!res.ok) {
@@ -46,7 +62,7 @@ async function remotePut(key, bytes, contentType) {
 
 async function remoteGet(key) {
   const res = await fetch(storageUrl(key), {
-    headers: { Authorization: `Bearer ${SERVICE_KEY}` },
+    headers: authHeaders(),
     cache: "no-store",
   });
   if (res.status === 404 || res.status === 400) return null;
@@ -54,27 +70,19 @@ async function remoteGet(key) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function remoteRemove(prefix) {
-  // 폴더 아래를 지우려면 목록을 먼저 받아야 합니다
-  const list = await remoteList(prefix);
-  if (!list.length) return;
+// 파일 키 하나를 지운다 (디렉터리가 아니라 정확한 키).
+async function remoteRemoveKey(key) {
   await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ prefixes: list.map((n) => `${prefix}/${n}`) }),
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ prefixes: [key] }),
   });
 }
 
 async function remoteList(prefix) {
   const res = await fetch(`${URL_BASE}/storage/v1/object/list/${BUCKET}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ prefix, limit: 100, offset: 0 }),
     cache: "no-store",
   });
@@ -90,10 +98,7 @@ async function ensureBucket() {
   if (!REMOTE || bucketReady) return;
   await fetch(`${URL_BASE}/storage/v1/bucket`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     // 비공개 버킷. 파일은 /api/assets/file/:slotId 를 거쳐서만 나갑니다.
     body: JSON.stringify({ id: BUCKET, name: BUCKET, public: false }),
   }).catch(() => {});
@@ -115,8 +120,8 @@ async function localGet(key) {
 async function localList(prefix) {
   return fs.readdir(localPath(prefix)).catch(() => []);
 }
-async function localRemove(prefix) {
-  await fs.rm(localPath(prefix), { recursive: true, force: true });
+async function localRemoveKey(key) {
+  await fs.rm(localPath(key), { force: true });
 }
 
 // ── 공통 입출력 ─────────────────────────────────────────
@@ -124,7 +129,7 @@ async function localRemove(prefix) {
 const put = (key, bytes, ct) => (REMOTE ? (ensureBucket().then(() => remotePut(key, bytes, ct))) : localPut(key, bytes));
 const get = (key) => (REMOTE ? remoteGet(key) : localGet(key));
 const list = (prefix) => (REMOTE ? remoteList(prefix) : localList(prefix));
-const remove = (prefix) => (REMOTE ? remoteRemove(prefix) : localRemove(prefix));
+const removeKey = (key) => (REMOTE ? remoteRemoveKey(key) : localRemoveKey(key));
 
 export const storageMode = () => (REMOTE ? "supabase" : "local");
 
@@ -146,20 +151,31 @@ async function writeRecords(records) {
   await put(RECORDS_KEY, Buffer.from(JSON.stringify(records, null, 2)), "application/json");
 }
 
+// 저장 키는 항상 ASCII 여야 합니다 — Supabase Storage 가 키 자체(URL 인코딩과
+// 무관하게)에 비-ASCII 문자가 있으면 거부합니다. 사람이 올리는 원래 파일명
+// (「대사양식.csv」 같은)은 records.json 에만 남기고, 실제 객체 키는
+// slotId + 확장자로 고정합니다. slotId 는 lib/assetSpec.js 에서 전부 ASCII 입니다.
+function assetKey(slotId, filename) {
+  const ext = path.extname(filename || "").toLowerCase();
+  return `assets/${slotId}/asset${ext}`;
+}
+
 /**
  * 파일 하나를 슬롯에 넣는다. 같은 슬롯에 다시 올리면 덮어씁니다.
  * record 에는 브라우저가 재 놓은 측정값(LUFS·삼각형 수 등)이 들어옵니다.
  */
 export async function putAsset(slotId, filename, bytes, record) {
-  const dir = `assets/${slotId}`;
-
-  // 슬롯 하나에 파일 하나. 이름이 바뀌었으면 예전 것을 지웁니다.
-  const existing = await list(dir);
-  if (existing.some((n) => n !== filename)) await remove(dir);
-
-  await put(`${dir}/${filename}`, bytes, mimeFor(filename));
-
   const records = await readRecords();
+
+  // 확장자가 바뀌었으면(wav→mp3 등) 예전 키가 고아로 남으니 지웁니다.
+  const prevExt = records[slotId] ? path.extname(records[slotId].filename || "") : null;
+  const nextExt = path.extname(filename || "");
+  if (prevExt && prevExt.toLowerCase() !== nextExt.toLowerCase()) {
+    await removeKey(assetKey(slotId, records[slotId].filename)).catch(() => {});
+  }
+
+  await put(assetKey(slotId, filename), bytes, mimeFor(filename));
+
   records[slotId] = {
     slotId, filename,
     bytes: bytes.length,
@@ -170,18 +186,18 @@ export async function putAsset(slotId, filename, bytes, record) {
   return records[slotId];
 }
 
-/** 슬롯에 든 파일의 바이트와 이름. 없으면 null. */
+/** 슬롯에 든 파일의 바이트와 이름(사람이 올린 원래 이름). 없으면 null. */
 export async function getAsset(slotId) {
-  const dir = `assets/${slotId}`;
-  const files = await list(dir);
-  if (!files.length) return null;
-  const bytes = await get(`${dir}/${files[0]}`);
-  return bytes ? { filename: files[0], bytes } : null;
+  const records = await readRecords();
+  const rec = records[slotId];
+  if (!rec) return null;
+  const bytes = await get(assetKey(slotId, rec.filename));
+  return bytes ? { filename: rec.filename, bytes } : null;
 }
 
 export async function removeAsset(slotId) {
-  await remove(`assets/${slotId}`);
   const records = await readRecords();
+  if (records[slotId]) await removeKey(assetKey(slotId, records[slotId].filename)).catch(() => {});
   delete records[slotId];
   await writeRecords(records);
 }
