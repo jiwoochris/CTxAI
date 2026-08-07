@@ -3,5 +3,9 @@ node_modules
 out
 .vercel
 .env*.local
+.env.production
+.env.production.local
 npm-debug.log*
 storage/
+.vercel-token
+.env*

@@ -10,8 +10,8 @@
 // 같은 소리를 6 dB 차이로 재면 LUFS 도 6 dB 차이가 나야 합니다.
 
 import { useState } from "react";
-import { measureAudio } from "../../../lib/measure/audio";
-import { measureDialogue } from "../../../lib/measure/dialogue";
+import { measureAudio } from "@/lib/measure/audio";
+import { measureDialogue } from "@/lib/measure/dialogue";
 import s from "../tool/tool.module.css";
 
 // 사인파 WAV 를 만든다 (16-bit PCM, 48kHz, 모노)
@@ -133,7 +133,7 @@ export default function SelfTest() {
         </>
       )}
 
-      <footer className={s.foot}><a href="/team">← 파일 올리는 곳</a></footer>
+      <footer className={s.foot}><a href="/">← 파일 올리는 곳</a></footer>
     </main>
   );
 }

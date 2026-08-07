@@ -92,7 +92,7 @@ export default function ToolPage() {
       </section>
 
       <footer className={s.foot}>
-        <a href="/team">← 파일 올리는 곳</a>
+        <a href="/">← 파일 올리는 곳</a>
       </footer>
     </main>
   );

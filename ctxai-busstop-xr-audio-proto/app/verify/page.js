@@ -26,7 +26,7 @@ export default function VerifyPage() {
       <MoodRecorder onScores={setScores} />
 
       <div className="footer-note">
-        <Link href="/" style={{ color: "var(--muted)" }}>
+        <Link href="/demo" style={{ color: "var(--muted)" }}>
           ← 전체 데모 페이지로
         </Link>
       </div>
