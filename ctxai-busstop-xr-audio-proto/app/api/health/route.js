@@ -2,7 +2,7 @@
 //
 //   curl -s localhost:3000/api/health | jq
 
-import { readRecords, listPresets } from "../../../lib/store";
+import { readRecords, listPresets, storageMode } from "../../../lib/store";
 import { SLOTS, PRESETS } from "../../../lib/assetSpec";
 
 export const runtime = "nodejs";
@@ -15,6 +15,8 @@ export async function GET() {
   return Response.json({
     ok: true,
     now: new Date().toISOString(),
+    // local 이면 배포 때마다 파일이 사라집니다. 운영에서는 supabase 여야 합니다.
+    storage: storageMode(),
     keys: {
       OPENROUTER_API_KEY: !!process.env.OPENROUTER_API_KEY,   // STT + 채점
       ELEVENLABS_API_KEY: !!process.env.ELEVENLABS_API_KEY,   // 음성 합성
