@@ -283,6 +283,7 @@
         }).join("") + "</select>" +
       '<button id="ctx-save" style="' + btn + 'background:#2f7d4f">💾 저장</button>' +
       '<button id="ctx-load" style="' + btn + 'background:#3a5f9e">📂 불러오기</button>' +
+      '<div id="ctx-picker" style="display:none;margin-top:8px"></div>' +
       '<div id="ctx-status" style="margin-top:10px;font-size:11.5px;line-height:1.45;' +
         'white-space:pre-wrap;color:#8b8f96;min-height:34px"></div>' +
       '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #3a3d44;font-size:11px;color:#6f747c">' +
@@ -320,25 +321,54 @@
       });
     };
 
+    var pickerEl = box.querySelector("#ctx-picker");
+
+    function closePicker() { pickerEl.style.display = "none"; pickerEl.innerHTML = ""; }
+
+    function openPicker(list) {
+      var saved = (list || []).filter(function (p) { return p.saved; });
+      var rowStyle = "display:block;width:100%;text-align:left;margin-top:5px;padding:8px 10px;" +
+        "border:1px solid #3a3d44;border-radius:6px;background:#181a1e;color:#e6e6e6;" +
+        "font:12.5px inherit;cursor:pointer;";
+
+      var html = "";
+      saved.forEach(function (p) {
+        html += '<button class="ctx-pick-item" data-name="' + p.name + '" style="' + rowStyle + '">' +
+          p.name + " — " + p.label + "</button>";
+      });
+      if (!saved.length) {
+        html += '<div style="font-size:12px;color:#8b8f96;padding:4px 0">서버에 저장된 프리셋이 없습니다.</div>';
+      }
+      html += '<button id="ctx-pick-file" style="' + rowStyle + '">📁 파일에서 고르기</button>';
+      html += '<button id="ctx-pick-cancel" style="' + rowStyle + 'color:#9aa0a8;text-align:center;margin-top:8px">취소</button>';
+
+      pickerEl.innerHTML = html;
+      pickerEl.style.display = "block";
+
+      pickerEl.querySelectorAll(".ctx-pick-item").forEach(function (btn) {
+        btn.onclick = function () {
+          var name = btn.getAttribute("data-name");
+          closePicker();
+          log("", name + " 불러오는 중…");
+          fetch(SERVER + "/api/preset?name=" + encodeURIComponent(name))
+            .then(function (r) { return r.json(); })
+            .then(function (j) { if (j.ok) apply(j.preset); else log("bad", j.error); })
+            .catch(function (e) { log("bad", e.message); });
+        };
+      });
+      pickerEl.querySelector("#ctx-pick-file").onclick = function () {
+        closePicker();
+        pickFile(apply);
+      };
+      pickerEl.querySelector("#ctx-pick-cancel").onclick = closePicker;
+    }
+
     box.querySelector("#ctx-load").onclick = function () {
+      closePicker();
+      log("", "목록 불러오는 중…");
       fetchList(function (list) {
-        var saved = (list || []).filter(function (p) { return p.saved; });
-        if (!saved.length) {
-          log("warn", "서버에 저장된 프리셋이 없습니다. 파일에서 고르세요.");
-          return pickFile(apply);
-        }
-        var msg = "몇 번을 불러올까요?\n\n" +
-          saved.map(function (p, i) { return (i + 1) + ". " + p.name + " — " + p.label; }).join("\n") +
-          "\n\n0. 파일에서 고르기";
-        var pick = prompt(msg, "1");
-        if (pick === null) return;
-        if (pick === "0") return pickFile(apply);
-        var chosen = saved[Number(pick) - 1];
-        if (!chosen) return log("warn", "그 번호는 없습니다.");
-        fetch(SERVER + "/api/preset?name=" + encodeURIComponent(chosen.name))
-          .then(function (r) { return r.json(); })
-          .then(function (j) { if (j.ok) apply(j.preset); else log("bad", j.error); })
-          .catch(function (e) { log("bad", e.message); });
+        log("", "");
+        openPicker(list);
       });
     };
 
