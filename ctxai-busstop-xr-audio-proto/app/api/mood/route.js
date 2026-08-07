@@ -12,8 +12,18 @@ const GENRES = ["horror", "romance", "comedy", "fantasy"];
 
 // Whisper 는 파일명 확장자로 컨테이너 포맷을 판단한다 — 실제 바이트와
 // 확장자가 어긋나면(예: m4a 파일에 .webm 이름) 400 으로 거부된다.
-// MediaRecorder 가 내려주는 MIME 타입에서 안전하게 확장자를 뽑아낸다.
-function extensionFor(mimeType) {
+//
+// 원래 파일명에 알아볼 수 있는 확장자가 있으면 그걸 그대로 씁니다 — curl 이나
+// 일반 파일 업로드는 Content-Type 을 "application/octet-stream" 으로 보낼 때가
+// 많아서, MIME 타입만 보면 전부 webm 으로 잘못 떨어집니다 (실사용 버그로 발견됨).
+// MediaRecorder 로 녹음한 진짜 브라우저 업로드는 파일명이 없거나 확장자가
+// 없을 수 있으니, 그때만 MIME 타입 매핑으로 넘어갑니다.
+const KNOWN_EXTS = new Set(["webm", "ogg", "m4a", "mp3", "wav", "mp4", "aac", "flac"]);
+
+function extensionFor(filename, mimeType) {
+  const fromName = (filename || "").split(".").pop()?.toLowerCase();
+  if (fromName && KNOWN_EXTS.has(fromName)) return fromName;
+
   const type = (mimeType || "").split(";")[0].trim().toLowerCase();
   const map = {
     "audio/webm": "webm",
@@ -73,7 +83,7 @@ export async function POST(req) {
   let transcript;
   try {
     const sttForm = new FormData();
-    sttForm.append("file", audio, `clip.${extensionFor(audio.type)}`);
+    sttForm.append("file", audio, `clip.${extensionFor(audio.name, audio.type)}`);
     sttForm.append("model", WHISPER_MODEL);
 
     const sttRes = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
