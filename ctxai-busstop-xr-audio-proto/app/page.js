@@ -76,12 +76,25 @@ export default function TeamPage() {
         return;
       }
 
+      // 이미 후보가 있는 슬롯이면 새 파일은 덮어쓰지 않고 후보로 추가됩니다 —
+      // 팀이 두 개를 나란히 듣고 고를 수 있게. 뭐라고 부를지만 물어봅니다.
+      const already = status?.rows.find((r) => r.id === slot.id)?.uploaded;
+      let note;
+      if (already) {
+        note = window.prompt(
+          `"${slot.label}" 에는 이미 올라온 게 있습니다. 기존 걸 덮지 않고 후보로 추가합니다.\n이 후보를 뭐라고 부를까요? (예: Robust, Natural — 비워도 됩니다)`,
+          ""
+        );
+        if (note === null) return; // 취소
+      }
+
       const measure = await measureFor(slot, file);
 
       const form = new FormData();
       form.append("file", file);
       form.append("slotId", slot.id);
       if (measure) form.append("measure", JSON.stringify(measure));
+      if (note) form.append("note", note);
 
       const res = await fetch("/api/assets", { method: "POST", body: form });
       const json = await res.json();
@@ -96,6 +109,37 @@ export default function TeamPage() {
       say("error", `${file.name} — ${e.message}`);
     } finally {
       setBusy((b) => b.filter((n) => n !== file.name));
+    }
+  }
+
+  async function chooseVariant(slotId, variantId) {
+    try {
+      const res = await fetch("/api/assets/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slotId, variantId }),
+      });
+      const json = await res.json();
+      if (!json.ok) { say("error", json.error || "선택하지 못했습니다"); return; }
+      setStatus(json.status);
+      say("ok", "선택 반영했습니다");
+    } catch (e) {
+      say("error", e.message);
+    }
+  }
+
+  async function deleteVariant(slotId, variantId) {
+    try {
+      const res = await fetch(
+        `/api/assets?slotId=${encodeURIComponent(slotId)}&variantId=${encodeURIComponent(variantId)}`,
+        { method: "DELETE" }
+      );
+      const json = await res.json();
+      if (!json.ok) { say("error", json.error || "지우지 못했습니다"); return; }
+      setStatus(json.status);
+      say("ok", "지웠습니다");
+    } catch (e) {
+      say("error", e.message);
     }
   }
 
@@ -217,7 +261,15 @@ export default function TeamPage() {
         <section key={due} className={s.section}>
           <h2>{due} <span className={s.dim}>{list.filter((r) => r.uploaded).length}/{list.length}</span></h2>
           <ul className={s.list}>
-            {list.map((r) => <Row key={r.id} row={r} onReplace={(f) => upload(r, f)} onLoad={load} />)}
+            {list.map((r) => (
+              <Row
+                key={r.id}
+                row={r}
+                onReplace={(f) => upload(r, f)}
+                onChoose={(vid) => chooseVariant(r.id, vid)}
+                onDeleteVariant={(vid) => deleteVariant(r.id, vid)}
+              />
+            ))}
           </ul>
         </section>
       ))}
@@ -246,7 +298,7 @@ export default function TeamPage() {
   );
 }
 
-function Row({ row, onReplace }) {
+function Row({ row, onReplace, onChoose, onDeleteVariant }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const m = row.measure;
@@ -295,7 +347,7 @@ function Row({ row, onReplace }) {
           className={s.replace}
           onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
         >
-          {row.uploaded ? "바꾸기" : "올리기"}
+          {row.uploaded ? "후보 추가" : "올리기"}
         </button>
         <input
           ref={ref} type="file" hidden
@@ -324,10 +376,41 @@ function Row({ row, onReplace }) {
             </p>
           )}
           {m?.truePeakApprox && <p className={s.dim}>트루 피크는 4배 오버샘플 근사입니다</p>}
-          <Preview row={row} />
+          {row.variants?.length > 1 ? (
+            <VariantList row={row} onChoose={onChoose} onDelete={onDeleteVariant} />
+          ) : (
+            <Preview row={row} />
+          )}
         </div>
       )}
     </li>
+  );
+}
+
+// 후보가 둘 이상이면 나란히 놓고 팀이 듣고 고를 수 있게 한다.
+function VariantList({ row, onChoose, onDelete }) {
+  return (
+    <ul className={s.variants}>
+      {row.variants.map((v) => {
+        const isChosen = v.id === row.chosenId;
+        return (
+          <li key={v.id} className={isChosen ? s.variantOn : s.variantOff}>
+            <div className={s.variantHead}>
+              <b>{v.note || v.filename}</b>
+              {isChosen ? (
+                <span className={s.chosenTag}>선택됨</span>
+              ) : (
+                <button className={s.chooseBtn} onClick={() => onChoose(v.id)}>이걸로 선택</button>
+              )}
+              <button className={s.delBtn} onClick={() => onDelete(v.id)}>삭제</button>
+            </div>
+            {row.kind === "audio" && (
+              <audio controls preload="none" src={`/api/assets/file/${row.id}?variant=${v.id}`} className={s.player} />
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -4,12 +4,15 @@
 // 초기화되므로, 아트가 어제 저장한 프리셋이 오늘 사라지면 안 됩니다.
 //
 //   busstop/
-//     assets/<slotId>/<파일이름>      실제 파일
-//     records.json                    슬롯별 최신 기록
-//     presets/<이름>.json             조명 프리셋
+//     assets/<slotId>/<variantId>.<확장자>   실제 파일 (슬롯당 후보 여러 개)
+//     records.json                           슬롯별 후보 목록 + 선택된 것
+//     presets/<이름>.json                    조명 프리셋
+//
+// 슬롯 하나가 후보(변형) 여러 개를 가질 수 있습니다 — 같은 대사를 톤 두 가지로
+// 뽑아서 팀이 듣고 고르는 경우처럼. records[slotId] = { variants: [...], chosenId }.
 //
 // 키가 없으면 로컬 파일시스템으로 떨어집니다 — 개발 장비에서 Supabase 없이
-// 돌려볼 수 있게. 어느 쪽이든 함수 네 개의 모양은 같습니다.
+// 돌려볼 수 있게. 어느 쪽이든 함수 모양은 같습니다.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -154,52 +157,124 @@ async function writeRecords(records) {
 // 저장 키는 항상 ASCII 여야 합니다 — Supabase Storage 가 키 자체(URL 인코딩과
 // 무관하게)에 비-ASCII 문자가 있으면 거부합니다. 사람이 올리는 원래 파일명
 // (「대사양식.csv」 같은)은 records.json 에만 남기고, 실제 객체 키는
-// slotId + 확장자로 고정합니다. slotId 는 lib/assetSpec.js 에서 전부 ASCII 입니다.
-function assetKey(slotId, filename) {
+// slotId + variantId + 확장자로 고정합니다. slotId 는 lib/assetSpec.js 에서
+// 전부 ASCII 입니다. variantId 는 아래 makeVariantId() 가 만드는 ASCII 문자열입니다.
+function assetKey(slotId, variantId, filename) {
   const ext = path.extname(filename || "").toLowerCase();
-  return `assets/${slotId}/asset${ext}`;
+  // "legacy" 는 변형 구조가 생기기 전 파일 — 그때 키 형식 그대로 찾아가야 한다.
+  if (variantId === "legacy") return `assets/${slotId}/asset${ext}`;
+  return `assets/${slotId}/${variantId}${ext}`;
+}
+
+function makeVariantId() {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// 이 변형 구조가 생기기 전에는 슬롯 하나 = 파일 하나였고, 저장 키도
+// assets/<slotId>/asset<ext> 로 variantId 가 없었습니다. 그때 올라온 기록을
+// 만나면 "legacy" 라는 id 를 가진 후보 하나짜리로 감싸서 새 구조와 똑같이 다룹니다.
+function normalizeSlotRec(raw) {
+  if (!raw) return { variants: [], chosenId: null };
+  if (Array.isArray(raw.variants)) return raw;
+  return {
+    variants: [{
+      id: "legacy", filename: raw.filename, bytes: raw.bytes,
+      uploadedAt: raw.uploadedAt, measure: raw.measure, note: raw.note,
+    }],
+    chosenId: "legacy",
+  };
 }
 
 /**
- * 파일 하나를 슬롯에 넣는다. 같은 슬롯에 다시 올리면 덮어씁니다.
- * record 에는 브라우저가 재 놓은 측정값(LUFS·삼각형 수 등)이 들어옵니다.
+ * 한 슬롯은 후보(변형) 여러 개를 가질 수 있습니다 — 같은 대사를 톤 두 가지로
+ * 뽑아서 팀이 듣고 고르는 경우처럼. slotRec.chosenId 가 "지금 쓰는 것"이고,
+ * 나머지는 비교용으로 같이 남아 있습니다. 처음 올리는 후보는 자동으로 선택됩니다.
  */
-export async function putAsset(slotId, filename, bytes, record) {
+export async function addVariant(slotId, filename, bytes, record) {
   const records = await readRecords();
+  const slotRec = normalizeSlotRec(records[slotId]);
 
-  // 확장자가 바뀌었으면(wav→mp3 등) 예전 키가 고아로 남으니 지웁니다.
-  const prevExt = records[slotId] ? path.extname(records[slotId].filename || "") : null;
-  const nextExt = path.extname(filename || "");
-  if (prevExt && prevExt.toLowerCase() !== nextExt.toLowerCase()) {
-    await removeKey(assetKey(slotId, records[slotId].filename)).catch(() => {});
-  }
+  const variantId = makeVariantId();
+  await put(assetKey(slotId, variantId, filename), bytes, mimeFor(filename));
 
-  await put(assetKey(slotId, filename), bytes, mimeFor(filename));
-
-  records[slotId] = {
-    slotId, filename,
+  const variant = {
+    id: variantId,
+    filename,
     bytes: bytes.length,
     uploadedAt: new Date().toISOString(),
     ...record,
   };
+  slotRec.variants = [...slotRec.variants, variant];
+  if (!slotRec.chosenId) slotRec.chosenId = variantId;
+
+  records[slotId] = slotRec;
   await writeRecords(records);
-  return records[slotId];
+  return slotRec;
 }
 
-/** 슬롯에 든 파일의 바이트와 이름(사람이 올린 원래 이름). 없으면 null. */
-export async function getAsset(slotId) {
+/** 어느 후보를 "지금 쓰는 것"으로 할지 정한다. */
+export async function chooseVariant(slotId, variantId) {
   const records = await readRecords();
-  const rec = records[slotId];
-  if (!rec) return null;
-  const bytes = await get(assetKey(slotId, rec.filename));
-  return bytes ? { filename: rec.filename, bytes } : null;
+  const slotRec = normalizeSlotRec(records[slotId]);
+  if (!slotRec.variants.some((v) => v.id === variantId)) {
+    throw new Error("모르는 후보입니다");
+  }
+  slotRec.chosenId = variantId;
+  records[slotId] = slotRec;
+  await writeRecords(records);
+  return slotRec;
 }
 
+/** 후보 하나를 지운다. 선택돼 있던 걸 지우면 남은 것 중 최신으로 넘어간다. */
+export async function removeVariant(slotId, variantId) {
+  const records = await readRecords();
+  const slotRec = normalizeSlotRec(records[slotId]);
+  const variant = slotRec.variants.find((v) => v.id === variantId);
+  if (!variant) return;
+
+  await removeKey(assetKey(slotId, variant.id, variant.filename)).catch(() => {});
+  slotRec.variants = slotRec.variants.filter((v) => v.id !== variantId);
+
+  if (!slotRec.variants.length) {
+    delete records[slotId];
+  } else {
+    if (slotRec.chosenId === variantId) {
+      slotRec.chosenId = slotRec.variants[slotRec.variants.length - 1].id;
+    }
+    records[slotId] = slotRec;
+  }
+  await writeRecords(records);
+}
+
+/** 슬롯째로 지운다 — 후보 전부. */
 export async function removeAsset(slotId) {
   const records = await readRecords();
-  if (records[slotId]) await removeKey(assetKey(slotId, records[slotId].filename)).catch(() => {});
+  const slotRec = normalizeSlotRec(records[slotId]);
+  for (const v of slotRec.variants) {
+    await removeKey(assetKey(slotId, v.id, v.filename)).catch(() => {});
+  }
   delete records[slotId];
   await writeRecords(records);
+}
+
+/** 슬롯에서 "지금 쓰는" 후보 하나를 고른다. chosenId 가 없으면 최신 것. */
+export function chosenVariant(rawSlotRec) {
+  const slotRec = normalizeSlotRec(rawSlotRec);
+  if (!slotRec.variants.length) return null;
+  const byId = slotRec.chosenId && slotRec.variants.find((v) => v.id === slotRec.chosenId);
+  return byId || slotRec.variants[slotRec.variants.length - 1];
+}
+
+/** 지정한 후보(없으면 선택된 것)의 바이트와 원래 파일명. 없으면 null. */
+export async function getAsset(slotId, variantId) {
+  const records = await readRecords();
+  const slotRec = normalizeSlotRec(records[slotId]);
+  const variant = variantId
+    ? slotRec.variants.find((v) => v.id === variantId)
+    : chosenVariant(slotRec);
+  if (!variant) return null;
+  const bytes = await get(assetKey(slotId, variant.id, variant.filename));
+  return bytes ? { filename: variant.filename, bytes } : null;
 }
 
 // ── 프리셋 ──────────────────────────────────────────────

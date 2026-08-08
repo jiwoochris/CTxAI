@@ -152,6 +152,26 @@
 
 .player { display: block; width: 100%; max-width: 420px; height: 34px; margin-top: 8px; }
 
+/* ── 후보(변형) 목록 ──────────────────────────────── */
+.variants { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.variantOn, .variantOff {
+  padding: 9px 11px; border-radius: 9px; border: 1px solid #333842; background: #1b1d22;
+}
+.variantOn { border-color: #2f5c40; background: #16281d; }
+.variantHead { display: flex; align-items: center; gap: 8px; }
+.variantHead b { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chosenTag {
+  font-size: 10.5px; font-weight: 700; color: #7fd67f; background: #1e3a28;
+  padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+}
+.chooseBtn, .delBtn {
+  padding: 4px 10px; border-radius: 6px; border: 1px solid #3d434d;
+  background: transparent; color: #c3c8cf; font: 600 11.5px inherit; cursor: pointer; white-space: nowrap;
+}
+.chooseBtn:hover { background: #21402c; border-color: #2f5c40; color: #bdeec4; }
+.delBtn { color: #b98e8e; }
+.delBtn:hover { background: #2a1c1e; border-color: #6b3236; color: #f0a0a0; }
+
 .previewLink {
   display: inline-block; margin-top: 8px; font: 600 12.5px inherit;
   color: #9aa8c0; text-decoration: none;

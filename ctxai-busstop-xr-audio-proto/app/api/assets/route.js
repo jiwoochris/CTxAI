@@ -6,7 +6,7 @@
 // 측정(LUFS·삼각형 수 등)은 브라우저가 하고 measure 필드로 함께 보냅니다.
 // 서버는 규칙 판정과 저장만 합니다.
 
-import { putAsset, readRecords, listPresets, removeAsset } from "../../../lib/store";
+import { addVariant, readRecords, listPresets, removeAsset, removeVariant } from "../../../lib/store";
 import { buildStatus } from "../../../lib/manifestBuild";
 import { SLOT_BY_ID, KIND_EXT, extOf } from "../../../lib/assetSpec";
 
@@ -54,21 +54,24 @@ export async function POST(req) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const record = await putAsset(slot.id, file.name, bytes, {
-    measure,
-    note: typeof form.get("note") === "string" ? form.get("note") : undefined,
-  });
+  const note = typeof form.get("note") === "string" && form.get("note") ? form.get("note") : undefined;
+  const record = await addVariant(slot.id, file.name, bytes, { measure, note });
 
   const [records, presets] = await Promise.all([readRecords(), listPresets()]);
   return Response.json({ ok: true, record, status: buildStatus(records, presets) });
 }
 
+// DELETE /api/assets?slotId=...              슬롯째로 지움 (후보 전부)
+// DELETE /api/assets?slotId=...&variantId=... 후보 하나만 지움
 export async function DELETE(req) {
-  const slotId = new URL(req.url).searchParams.get("slotId");
+  const params = new URL(req.url).searchParams;
+  const slotId = params.get("slotId");
+  const variantId = params.get("variantId");
   if (!SLOT_BY_ID[slotId]) {
     return Response.json({ ok: false, error: "모르는 칸입니다" }, { status: 400 });
   }
-  await removeAsset(slotId);
+  if (variantId) await removeVariant(slotId, variantId);
+  else await removeAsset(slotId);
   const [records, presets] = await Promise.all([readRecords(), listPresets()]);
   return Response.json({ ok: true, status: buildStatus(records, presets) });
 }

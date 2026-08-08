@@ -4,6 +4,7 @@
 // 형식은 Bus/규격/manifest.schema.json 과 같습니다.
 
 import { SLOTS, GENRES, PRESETS, LIMITS } from "./assetSpec";
+import { chosenVariant } from "./store";
 
 function setPath(obj, path, value) {
   // "models.structure[bench]" 같은 배열 항목도 받는다
@@ -63,7 +64,7 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
   };
 
   for (const slot of SLOTS) {
-    const r = records[slot.id];
+    const r = chosenVariant(records[slot.id]);
     const entry = { file: r?.filename ?? slot.file, status: statusOf(r) };
     if (r?.note) entry.note = r.note;
 
@@ -81,14 +82,14 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
   }
 
   // 아트가 알려 준 값 — 검사에서 뽑힌 것을 우선 반영
-  const npc = records["npc.model"];
+  const npc = chosenVariant(records["npc.model"]);
   m.models.npc.headBone = npc?.measure?.headBone ?? "Head";
   m.models.npc.runtimeRanges = {
     gazeContact: [0.0, 1.0], benchDistanceM: [0.5, 1.4],
     silenceSec: [0.4, 2.5], voiceGain: [0.75, 1.1],
   };
 
-  const sign = records["sign.model"];
+  const sign = chosenVariant(records["sign.model"]);
   m.models.sign.nameplateMaterial = sign?.measure?.nameplateMaterial ?? "mat_nameplate";
   m.models.sign.nameplate = {
     colorHex: "#F5F2E8", fontFamily: "Pretendard", fontWeight: "Bold",
@@ -104,7 +105,8 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
  */
 export function buildStatus(records, presets) {
   const rows = SLOTS.map((slot) => {
-    const r = records[slot.id];
+    const slotRec = records[slot.id];
+    const r = chosenVariant(slotRec);
     const issues = r?.measure?.issues ?? [];
     return {
       ...slot,
@@ -115,12 +117,21 @@ export function buildStatus(records, presets) {
       measure: r?.measure ?? null,
       errors: issues.filter((i) => i.severity === "error").length,
       warns: issues.filter((i) => i.severity === "warn").length,
+      chosenId: slotRec?.chosenId ?? null,
+      variants: (slotRec?.variants ?? []).map((v) => ({
+        id: v.id,
+        filename: v.filename,
+        uploadedAt: v.uploadedAt,
+        bytes: v.bytes,
+        note: v.note ?? null,
+        measure: v.measure ?? null,
+      })),
     };
   });
 
   // 배경 트랙 4종은 서로 비교해야 알 수 있는 것이 있습니다
   const cross = [];
-  const bgm = GENRES.map((g) => records[`bgm.${g}`]?.measure).filter(Boolean);
+  const bgm = GENRES.map((g) => chosenVariant(records[`bgm.${g}`])?.measure).filter(Boolean);
   const lufs = bgm.map((b) => b?.lufsIntegrated).filter((v) => typeof v === "number");
   if (lufs.length === 4) {
     const spread = Math.max(...lufs) - Math.min(...lufs);
@@ -145,7 +156,7 @@ export function buildStatus(records, presets) {
     });
   }
 
-  const loops = GENRES.map((g) => records[`bgm.${g}`]?.measure?.durationSec).filter(Boolean);
+  const loops = GENRES.map((g) => chosenVariant(records[`bgm.${g}`])?.measure?.durationSec).filter(Boolean);
   if (loops.length) {
     const off = loops.filter((d) => Math.abs(d - LIMITS.bgmLoopSec) > 1);
     cross.push({
