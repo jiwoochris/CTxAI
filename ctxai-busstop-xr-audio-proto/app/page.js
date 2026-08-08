@@ -76,13 +76,13 @@ export default function TeamPage() {
         return;
       }
 
-      // 이미 후보가 있는 슬롯이면 새 파일은 덮어쓰지 않고 후보로 추가됩니다 —
+      // 이미 샘플이 있는 슬롯이면 새 파일은 덮어쓰지 않고 샘플로 추가됩니다 —
       // 팀이 두 개를 나란히 듣고 고를 수 있게. 뭐라고 부를지만 물어봅니다.
       const already = status?.rows.find((r) => r.id === slot.id)?.uploaded;
       let note;
       if (already) {
         note = window.prompt(
-          `"${slot.label}" 에는 이미 올라온 게 있습니다. 기존 걸 덮지 않고 후보로 추가합니다.\n이 후보를 뭐라고 부를까요? (예: Robust, Natural — 비워도 됩니다)`,
+          `"${slot.label}" 에는 이미 올라온 게 있습니다. 기존 걸 덮지 않고 샘플로 추가합니다.\n이 샘플을 뭐라고 부를까요? (예: Robust, Natural — 비워도 됩니다)`,
           ""
         );
         if (note === null) return; // 취소
@@ -347,7 +347,7 @@ function Row({ row, onReplace, onChoose, onDeleteVariant }) {
           className={s.replace}
           onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
         >
-          {row.uploaded ? "후보 추가" : "올리기"}
+          {row.uploaded ? "샘플 추가" : "올리기"}
         </button>
         <input
           ref={ref} type="file" hidden
@@ -387,7 +387,7 @@ function Row({ row, onReplace, onChoose, onDeleteVariant }) {
   );
 }
 
-// 후보가 둘 이상이면 나란히 놓고 팀이 듣고 고를 수 있게 한다.
+// 샘플이 둘 이상이면 나란히 놓고 팀이 듣고 고를 수 있게 한다.
 function VariantList({ row, onChoose, onDelete }) {
   return (
     <ul className={s.variants}>

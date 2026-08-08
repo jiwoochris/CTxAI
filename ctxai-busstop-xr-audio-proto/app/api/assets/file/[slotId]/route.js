@@ -16,7 +16,7 @@ export async function GET(req, { params }) {
     return Response.json({ error: "모르는 칸입니다" }, { status: 404 });
   }
 
-  // ?variant=<id> 로 특정 후보를 지정하지 않으면 선택된 것을 준다.
+  // ?variant=<id> 로 특정 샘플을 지정하지 않으면 선택된 것을 준다.
   const variantId = new URL(req.url).searchParams.get("variant") || undefined;
   const asset = await getAsset(slotId, variantId);
   if (!asset) {

@@ -4,11 +4,11 @@
 // 초기화되므로, 아트가 어제 저장한 프리셋이 오늘 사라지면 안 됩니다.
 //
 //   busstop/
-//     assets/<slotId>/<variantId>.<확장자>   실제 파일 (슬롯당 후보 여러 개)
-//     records.json                           슬롯별 후보 목록 + 선택된 것
+//     assets/<slotId>/<variantId>.<확장자>   실제 파일 (슬롯당 샘플 여러 개)
+//     records.json                           슬롯별 샘플 목록 + 선택된 것
 //     presets/<이름>.json                    조명 프리셋
 //
-// 슬롯 하나가 후보(변형) 여러 개를 가질 수 있습니다 — 같은 대사를 톤 두 가지로
+// 슬롯 하나가 샘플 여러 개를 가질 수 있습니다 — 같은 대사를 톤 두 가지로
 // 뽑아서 팀이 듣고 고르는 경우처럼. records[slotId] = { variants: [...], chosenId }.
 //
 // 키가 없으면 로컬 파일시스템으로 떨어집니다 — 개발 장비에서 Supabase 없이
@@ -170,9 +170,9 @@ function makeVariantId() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// 이 변형 구조가 생기기 전에는 슬롯 하나 = 파일 하나였고, 저장 키도
+// 이 구조가 생기기 전에는 슬롯 하나 = 파일 하나였고, 저장 키도
 // assets/<slotId>/asset<ext> 로 variantId 가 없었습니다. 그때 올라온 기록을
-// 만나면 "legacy" 라는 id 를 가진 후보 하나짜리로 감싸서 새 구조와 똑같이 다룹니다.
+// 만나면 "legacy" 라는 id 를 가진 샘플 하나짜리로 감싸서 새 구조와 똑같이 다룹니다.
 function normalizeSlotRec(raw) {
   if (!raw) return { variants: [], chosenId: null };
   if (Array.isArray(raw.variants)) return raw;
@@ -186,9 +186,9 @@ function normalizeSlotRec(raw) {
 }
 
 /**
- * 한 슬롯은 후보(변형) 여러 개를 가질 수 있습니다 — 같은 대사를 톤 두 가지로
+ * 한 슬롯은 샘플 여러 개를 가질 수 있습니다 — 같은 대사를 톤 두 가지로
  * 뽑아서 팀이 듣고 고르는 경우처럼. slotRec.chosenId 가 "지금 쓰는 것"이고,
- * 나머지는 비교용으로 같이 남아 있습니다. 처음 올리는 후보는 자동으로 선택됩니다.
+ * 나머지는 비교용으로 같이 남아 있습니다. 처음 올리는 샘플은 자동으로 선택됩니다.
  */
 export async function addVariant(slotId, filename, bytes, record) {
   const records = await readRecords();
@@ -212,12 +212,12 @@ export async function addVariant(slotId, filename, bytes, record) {
   return slotRec;
 }
 
-/** 어느 후보를 "지금 쓰는 것"으로 할지 정한다. */
+/** 어느 샘플을 "지금 쓰는 것"으로 할지 정한다. */
 export async function chooseVariant(slotId, variantId) {
   const records = await readRecords();
   const slotRec = normalizeSlotRec(records[slotId]);
   if (!slotRec.variants.some((v) => v.id === variantId)) {
-    throw new Error("모르는 후보입니다");
+    throw new Error("모르는 샘플입니다");
   }
   slotRec.chosenId = variantId;
   records[slotId] = slotRec;
@@ -225,7 +225,7 @@ export async function chooseVariant(slotId, variantId) {
   return slotRec;
 }
 
-/** 후보 하나를 지운다. 선택돼 있던 걸 지우면 남은 것 중 최신으로 넘어간다. */
+/** 샘플 하나를 지운다. 선택돼 있던 걸 지우면 남은 것 중 최신으로 넘어간다. */
 export async function removeVariant(slotId, variantId) {
   const records = await readRecords();
   const slotRec = normalizeSlotRec(records[slotId]);
@@ -246,7 +246,7 @@ export async function removeVariant(slotId, variantId) {
   await writeRecords(records);
 }
 
-/** 슬롯째로 지운다 — 후보 전부. */
+/** 슬롯째로 지운다 — 샘플 전부. */
 export async function removeAsset(slotId) {
   const records = await readRecords();
   const slotRec = normalizeSlotRec(records[slotId]);
@@ -257,7 +257,7 @@ export async function removeAsset(slotId) {
   await writeRecords(records);
 }
 
-/** 슬롯에서 "지금 쓰는" 후보 하나를 고른다. chosenId 가 없으면 최신 것. */
+/** 슬롯에서 "지금 쓰는" 샘플 하나를 고른다. chosenId 가 없으면 최신 것. */
 export function chosenVariant(rawSlotRec) {
   const slotRec = normalizeSlotRec(rawSlotRec);
   if (!slotRec.variants.length) return null;
@@ -265,7 +265,7 @@ export function chosenVariant(rawSlotRec) {
   return byId || slotRec.variants[slotRec.variants.length - 1];
 }
 
-/** 지정한 후보(없으면 선택된 것)의 바이트와 원래 파일명. 없으면 null. */
+/** 지정한 샘플(없으면 선택된 것)의 바이트와 원래 파일명. 없으면 null. */
 export async function getAsset(slotId, variantId) {
   const records = await readRecords();
   const slotRec = normalizeSlotRec(records[slotId]);

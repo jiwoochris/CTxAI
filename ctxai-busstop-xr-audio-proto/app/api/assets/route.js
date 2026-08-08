@@ -61,8 +61,8 @@ export async function POST(req) {
   return Response.json({ ok: true, record, status: buildStatus(records, presets) });
 }
 
-// DELETE /api/assets?slotId=...              슬롯째로 지움 (후보 전부)
-// DELETE /api/assets?slotId=...&variantId=... 후보 하나만 지움
+// DELETE /api/assets?slotId=...              슬롯째로 지움 (샘플 전부)
+// DELETE /api/assets?slotId=...&variantId=... 샘플 하나만 지움
 export async function DELETE(req) {
   const params = new URL(req.url).searchParams;
   const slotId = params.get("slotId");
