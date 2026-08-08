@@ -150,6 +150,20 @@
 .detail p { margin: 3px 0; }
 .detail code { font-family: ui-monospace, monospace; font-size: 11.5px; color: #9aa0a8; }
 
+.player { display: block; width: 100%; max-width: 420px; height: 34px; margin-top: 8px; }
+
+.previewLink {
+  display: inline-block; margin-top: 8px; font: 600 12.5px inherit;
+  color: #9aa8c0; text-decoration: none;
+}
+.previewLink:hover { text-decoration: underline; }
+
+.previewToggle {
+  padding: 6px 12px; margin-top: 6px; border-radius: 6px; border: 1px solid #3d434d;
+  background: #20232a; color: #c3c8cf; font: 600 12px inherit; cursor: pointer;
+}
+.previewToggle:hover { background: #262a32; border-color: #565d68; }
+
 /* ── 자리 고르기 ──────────────────────────────────── */
 .modalBack {
   position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.65);

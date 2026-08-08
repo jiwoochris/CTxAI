@@ -324,10 +324,63 @@ function Row({ row, onReplace }) {
             </p>
           )}
           {m?.truePeakApprox && <p className={s.dim}>트루 피크는 4배 오버샘플 근사입니다</p>}
+          <Preview row={row} />
         </div>
       )}
     </li>
   );
+}
+
+// 다른 팀원이 올라온 파일을 직접 듣거나(오디오) 보게(3D) 하는 부분.
+// GLB 뷰어(@google/model-viewer)는 무거워서, 실제로 3D 미리보기를 열 때만 불러온다.
+function Preview({ row }) {
+  const [show3d, setShow3d] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (show3d && !ready) import("@google/model-viewer").then(() => setReady(true));
+  }, [show3d, ready]);
+
+  if (!row.uploaded) return null;
+  const fileUrl = `/api/assets/file/${row.id}`;
+
+  if (row.kind === "audio") {
+    return <audio controls preload="none" src={fileUrl} className={s.player} />;
+  }
+
+  if (row.kind === "dialogue") {
+    return (
+      <a className={s.previewLink} href={fileUrl} target="_blank" rel="noreferrer">
+        새 탭에서 표 보기 →
+      </a>
+    );
+  }
+
+  if (row.kind === "model") {
+    return (
+      <div>
+        <button className={s.previewToggle} onClick={() => setShow3d((v) => !v)}>
+          {show3d ? "3D 미리보기 닫기" : "3D 미리보기 보기"}
+        </button>
+        {show3d && (
+          ready ? (
+            // eslint-disable-next-line react/no-unknown-property
+            <model-viewer
+              src={fileUrl}
+              camera-controls=""
+              auto-rotate=""
+              exposure="1"
+              style={{ width: "100%", height: 280, marginTop: 8, background: "#0d0f13", borderRadius: 8 }}
+            />
+          ) : (
+            <p className={s.dim}>불러오는 중…</p>
+          )
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function SlotPicker({ file, onPick, onCancel }) {
