@@ -290,6 +290,7 @@ export default function TeamPage() {
 
       <footer className={s.foot}>
         <a href="/guide">사용설명서</a> ·{" "}
+        <a href="/whitebox">화이트박스 테스트 환경</a> ·{" "}
         매니페스트는 자동으로 만들어집니다 —{" "}
         <a href="/api/manifest?download=1">내려받기</a> ·{" "}
         <a href="/api/health">백엔드 상태</a>
