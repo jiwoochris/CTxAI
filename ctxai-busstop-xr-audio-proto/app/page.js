@@ -225,7 +225,7 @@ export default function TeamPage() {
 
       {(role === "전체" || role === "아트") && (
         <section className={s.section}>
-          <h2>조명 프리셋 <span className={s.dim}>PlayCanvas 에디터에서</span></h2>
+          <h2>조명 프리셋 <span className={s.dim}>화이트박스에서</span></h2>
           <div className={s.presets}>
             {presets.map((p) => (
               <div key={p.name} className={p.saved ? s.presetOn : s.presetOff}>
@@ -236,8 +236,7 @@ export default function TeamPage() {
             ))}
           </div>
           <p className={s.note}>
-            에디터에서 「저장」을 누르면 여기 자동으로 뜹니다. 파일을 보내실 필요 없습니다.
-            {" "}<a href="/tool">도구 설치하기 →</a>
+            <a href="/whitebox">화이트박스</a>에서 조명을 조절하고 「저장」을 누르면 여기 자동으로 뜹니다.
           </p>
         </section>
       )}

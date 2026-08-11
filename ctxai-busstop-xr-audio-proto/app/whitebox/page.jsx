@@ -6,8 +6,8 @@
 // react-three-fiber + @react-three/xr — Quest 3 브라우저에서 "Enter VR"로 바로 들어갑니다.
 // 배치 좌표는 실제 정류장 레이아웃이 정해지기 전까지의 임시값입니다 (LAYOUT 참고).
 //
-// 조명은 이제 PlayCanvas 에디터 북마크릿(app/tool) 대신 여기서 직접 조절·저장합니다.
-// 저장 형식은 그대로 규격/preset/preset.schema.json — /api/preset 은 손대지 않았습니다.
+// 조명은 이제 PlayCanvas 에디터 북마크릿(예전 app/tool, public/preset-tool.js — 제거함) 대신
+// 여기서 직접 조절·저장합니다. 저장 형식은 그대로 규격/preset/preset.schema.json.
 
 import { Component, Suspense, useEffect, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
