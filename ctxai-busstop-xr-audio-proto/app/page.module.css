@@ -22,6 +22,8 @@
 .counts > div { text-align: right; }
 .counts b { display: block; font-size: 26px; font-weight: 700; line-height: 1.1; }
 .counts span { font-size: 11.5px; color: #8c9098; }
+.countLink { text-align: right; text-decoration: none; color: inherit; }
+.countLink:hover b { color: #9aa8c0; }
 
 /* ── 드롭존 ───────────────────────────────────────── */
 .drop {
@@ -75,14 +77,6 @@
 .presetOn code, .presetOff code { font-size: 11px; color: #7d838c; font-family: ui-monospace, monospace; }
 .presetOn span { font-size: 11.5px; color: #7fd67f; }
 .presetOff span { font-size: 11.5px; color: #6a7078; }
-
-/* ── 할 일(스크립트) ──────────────────────────────── */
-.scriptGroup { margin-top: 14px; }
-.scriptGroup:first-of-type { margin-top: 4px; }
-.scriptGroup h3 {
-  font-size: 12px; font-weight: 700; color: #767c86; letter-spacing: .04em;
-  margin: 0 0 6px;
-}
 
 /* ── 교차 검사 ────────────────────────────────────── */
 .cross { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }

@@ -16,6 +16,8 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
+import { SCRIPT_TASKS } from "./scriptTasks";
 
 const BUCKET = "busstop";
 const RECORDS_KEY = "records.json";
@@ -298,4 +300,52 @@ export async function listPresets() {
     try { out[f.replace(/\.json$/, "")] = JSON.parse(raw.toString("utf8")); } catch (e) {}
   }
   return out;
+}
+
+// ── 할 일 ────────────────────────────────────────────────
+//
+// 처음 읽을 때 정류장_스크립트 v1.1 을 정리한 할 일로 씨딩합니다.
+// 그 뒤로는 이 파일이 진실이고, scriptTasks.js 는 참고용 초안일 뿐입니다.
+
+const TASKS_KEY = "tasks.json";
+
+async function writeTasks(tasks) {
+  await put(TASKS_KEY, Buffer.from(JSON.stringify(tasks, null, 2)), "application/json");
+  return tasks;
+}
+
+export async function listTasks() {
+  const raw = await get(TASKS_KEY);
+  if (raw) {
+    try { return JSON.parse(raw.toString("utf8")); } catch (e) {}
+  }
+  const seeded = SCRIPT_TASKS.map((t) => ({
+    id: crypto.randomUUID(), done: false, source: "script", createdAt: null, ...t,
+  }));
+  return writeTasks(seeded);
+}
+
+export async function addTask({ role, label, detail }) {
+  const tasks = await listTasks();
+  const task = {
+    id: crypto.randomUUID(), role, label, detail: detail || "",
+    done: false, source: "custom", createdAt: new Date().toISOString(),
+  };
+  tasks.push(task);
+  await writeTasks(tasks);
+  return task;
+}
+
+export async function updateTask(id, patch) {
+  const tasks = await listTasks();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx === -1) return null;
+  tasks[idx] = { ...tasks[idx], ...patch };
+  await writeTasks(tasks);
+  return tasks[idx];
+}
+
+export async function removeTask(id) {
+  const tasks = await listTasks();
+  await writeTasks(tasks.filter((t) => t.id !== id));
 }

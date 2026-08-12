@@ -10,7 +10,6 @@ import { SLOTS, guessSlot, extOf, KIND_EXT } from "@/lib/assetSpec";
 import { measureAudio } from "@/lib/measure/audio";
 import { measureGlb } from "@/lib/measure/glb";
 import { measureDialogue } from "@/lib/measure/dialogue";
-import { SCRIPT_TASKS, SCRIPT_ROLE_ORDER, SCRIPT_DOC_SLUG, SCRIPT_DOC_LABEL } from "@/lib/scriptTasks";
 import s from "./page.module.css";
 
 const ROLES = ["전체", "아트", "사운드", "기획"];
@@ -35,6 +34,7 @@ function when(iso) {
 
 export default function TeamPage() {
   const [status, setStatus] = useState(null);
+  const [taskSummary, setTaskSummary] = useState(null);
   const [role, setRole] = useState("전체");
   const [busy, setBusy] = useState([]);      // 처리 중인 파일 이름
   const [toasts, setToasts] = useState([]);
@@ -53,6 +53,16 @@ export default function TeamPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    fetch("/api/tasks", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const tasks = j.tasks ?? [];
+        setTaskSummary({ done: tasks.filter((t) => t.done).length, total: tasks.length });
+      })
+      .catch(() => setTaskSummary(null));
+  }, []);
 
   function say(kind, text) {
     const id = Math.random().toString(36).slice(2);
@@ -164,13 +174,6 @@ export default function TeamPage() {
     return status.rows.filter((r) => role === "전체" || r.role === role);
   }, [status, role]);
 
-  const scriptGroups = useMemo(() => {
-    return SCRIPT_ROLE_ORDER
-      .filter((r) => role === "전체" || role === r)
-      .map((r) => [r, SCRIPT_TASKS.filter((t) => t.role === r)])
-      .filter(([, list]) => list.length > 0);
-  }, [role]);
-
   const grouped = useMemo(() => {
     const by = {};
     for (const r of rows) (by[r.due] ??= []).push(r);
@@ -205,6 +208,11 @@ export default function TeamPage() {
         <div className={s.counts}>
           <div><b>{summary.augDone}</b><span>/{summary.augTotal} 8월 파일</span></div>
           <div><b>{summary.presetDone}</b><span>/{summary.presetTotal} 조명 프리셋</span></div>
+          {taskSummary && (
+            <a className={s.countLink} href="/todo">
+              <b>{taskSummary.done}</b><span>/{taskSummary.total} 할 일</span>
+            </a>
+          )}
           {summary.errors > 0 && <div className={s.bad}><b>{summary.errors}</b><span>고칠 것</span></div>}
         </div>
       </header>
@@ -245,29 +253,6 @@ export default function TeamPage() {
           </div>
           <p className={s.note}>
             <a href="/whitebox">화이트박스</a>에서 조명을 조절하고 「저장」을 누르면 여기 자동으로 뜹니다.
-          </p>
-        </section>
-      )}
-
-      {scriptGroups.length > 0 && (
-        <section className={s.section}>
-          <h2>할 일 <span className={s.dim}>{SCRIPT_DOC_LABEL} 기준</span></h2>
-          {scriptGroups.map(([r, list]) => (
-            <div key={r} className={s.scriptGroup}>
-              <h3>{r}</h3>
-              <ul className={s.cross}>
-                {list.map((t, i) => (
-                  <li key={i} className={s.pend}>
-                    <span>☐</span>
-                    <b>{t.label}</b>
-                    <em>{t.detail}</em>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          <p className={s.note}>
-            <a href={`/guide?doc=${SCRIPT_DOC_SLUG}`}>{SCRIPT_DOC_LABEL} 전체 보기 →</a>
           </p>
         </section>
       )}
@@ -321,6 +306,7 @@ export default function TeamPage() {
       <footer className={s.foot}>
         <a href="/guide">사용설명서</a> ·{" "}
         <a href="/whitebox">화이트박스 테스트 환경</a> ·{" "}
+        <a href="/todo">할 일 목록</a> ·{" "}
         매니페스트는 자동으로 만들어집니다 —{" "}
         <a href="/api/manifest?download=1">내려받기</a> ·{" "}
         <a href="/api/health">백엔드 상태</a>
