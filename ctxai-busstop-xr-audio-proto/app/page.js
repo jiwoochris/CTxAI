@@ -10,6 +10,7 @@ import { SLOTS, guessSlot, extOf, KIND_EXT } from "@/lib/assetSpec";
 import { measureAudio } from "@/lib/measure/audio";
 import { measureGlb } from "@/lib/measure/glb";
 import { measureDialogue } from "@/lib/measure/dialogue";
+import { SCRIPT_TASKS, SCRIPT_ROLE_ORDER, SCRIPT_DOC_SLUG, SCRIPT_DOC_LABEL } from "@/lib/scriptTasks";
 import s from "./page.module.css";
 
 const ROLES = ["전체", "아트", "사운드", "기획"];
@@ -163,6 +164,13 @@ export default function TeamPage() {
     return status.rows.filter((r) => role === "전체" || r.role === role);
   }, [status, role]);
 
+  const scriptGroups = useMemo(() => {
+    return SCRIPT_ROLE_ORDER
+      .filter((r) => role === "전체" || role === r)
+      .map((r) => [r, SCRIPT_TASKS.filter((t) => t.role === r)])
+      .filter(([, list]) => list.length > 0);
+  }, [role]);
+
   const grouped = useMemo(() => {
     const by = {};
     for (const r of rows) (by[r.due] ??= []).push(r);
@@ -237,6 +245,29 @@ export default function TeamPage() {
           </div>
           <p className={s.note}>
             <a href="/whitebox">화이트박스</a>에서 조명을 조절하고 「저장」을 누르면 여기 자동으로 뜹니다.
+          </p>
+        </section>
+      )}
+
+      {scriptGroups.length > 0 && (
+        <section className={s.section}>
+          <h2>할 일 <span className={s.dim}>{SCRIPT_DOC_LABEL} 기준</span></h2>
+          {scriptGroups.map(([r, list]) => (
+            <div key={r} className={s.scriptGroup}>
+              <h3>{r}</h3>
+              <ul className={s.cross}>
+                {list.map((t, i) => (
+                  <li key={i} className={s.pend}>
+                    <span>☐</span>
+                    <b>{t.label}</b>
+                    <em>{t.detail}</em>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className={s.note}>
+            <a href={`/guide?doc=${SCRIPT_DOC_SLUG}`}>{SCRIPT_DOC_LABEL} 전체 보기 →</a>
           </p>
         </section>
       )}
