@@ -203,6 +203,7 @@ export default function TeamPage() {
           <p className={s.dim}>
             파일을 끌어다 놓기만 하면 됩니다. 이름을 보고 알아서 자리를 찾고, 규격도 여기서 봅니다.
             {" "}<a href="/guide" className={s.guideLink}>사용설명서 →</a>
+            {" · "}<a href="/todo" className={s.guideLink}>할 일 목록 →</a>
           </p>
         </div>
         <div className={s.counts}>
