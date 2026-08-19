@@ -6,7 +6,10 @@
 // 순서는 기획 → 아트 → 사운드 → 개발 — 각 팀이 다음 팀에 뭘 넘겨야 하는지 순서대로.
 
 export const SCRIPT_DOC_SLUG = "busstop-script-v1-1";
-export const SCRIPT_DOC_LABEL = "정류장_스크립트 v1.1";
+export const SCRIPT_DOC_LABEL = "정류장_스크립트 v1.1 (로맨스)";
+
+export const SCRIPT_V2_DOC_SLUG = "busstop-script-v2";
+export const SCRIPT_V2_DOC_LABEL = "정류장_스크립트 v2 (공통 도입부·판정 기준·공포·블랙코미디)";
 
 export const SCRIPT_ROLE_ORDER = ["기획", "아트", "사운드", "개발"];
 

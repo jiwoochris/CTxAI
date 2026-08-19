@@ -5,7 +5,9 @@
 // 저장은 /api/tasks (Supabase의 tasks.json) — 대시보드(app/page.js)와는 별도 페이지입니다.
 
 import { useEffect, useState } from "react";
-import { SCRIPT_ROLE_ORDER, SCRIPT_DOC_SLUG, SCRIPT_DOC_LABEL } from "../../lib/scriptTasks";
+import {
+  SCRIPT_ROLE_ORDER, SCRIPT_DOC_SLUG, SCRIPT_DOC_LABEL, SCRIPT_V2_DOC_SLUG, SCRIPT_V2_DOC_LABEL,
+} from "../../lib/scriptTasks";
 import s from "./todo.module.css";
 
 export default function TodoPage() {
@@ -82,7 +84,8 @@ export default function TodoPage() {
           <h1>할 일</h1>
           <p className={s.dim}>
             {SCRIPT_DOC_LABEL}을 정리한 초안으로 시작했습니다 — 필요하면 아래에서 자유롭게 추가하세요.
-            {" "}<a href={`/guide?doc=${SCRIPT_DOC_SLUG}`}>스크립트 전체 보기 →</a>
+            {" "}<a href={`/guide?doc=${SCRIPT_DOC_SLUG}`}>v1.1 보기 →</a>
+            {" · "}<a href={`/guide?doc=${SCRIPT_V2_DOC_SLUG}`}>{SCRIPT_V2_DOC_LABEL} 보기 →</a>
           </p>
         </div>
         {tasks && <div className={s.count}><b>{doneCount}</b><span>/{tasks.length} 완료</span></div>}
