@@ -73,7 +73,10 @@ export default function TodoPage() {
   }
 
   const groups = tasks
-    ? SCRIPT_ROLE_ORDER.map((r) => [r, tasks.filter((t) => t.role === r)]).filter(([, l]) => l.length > 0)
+    ? SCRIPT_ROLE_ORDER.map((r) => [r, tasks.filter((t) => t.role === r && !t.done)]).filter(([, l]) => l.length > 0)
+    : [];
+  const doneGroups = tasks
+    ? SCRIPT_ROLE_ORDER.map((r) => [r, tasks.filter((t) => t.role === r && t.done)]).filter(([, l]) => l.length > 0)
     : [];
   const doneCount = tasks?.filter((t) => t.done).length ?? 0;
 
@@ -115,13 +118,11 @@ export default function TodoPage() {
 
       {groups.map(([r, list]) => (
         <section key={r} className={s.section}>
-          <h2>{r} <span className={s.dim}>{list.filter((t) => t.done).length}/{list.length}</span></h2>
+          <h2>{r} <span className={s.dim}>{list.length}개 남음</span></h2>
           <ul className={s.list}>
             {list.map((t) => (
-              <li key={t.id} className={t.done ? s.itemDone : s.item}>
-                <button className={s.check} onClick={() => toggle(t)} aria-label="완료 표시">
-                  {t.done ? "☑" : "☐"}
-                </button>
+              <li key={t.id} className={s.item}>
+                <button className={s.check} onClick={() => toggle(t)} aria-label="완료 표시">☐</button>
                 <div className={s.itemText}>
                   <b>{t.label}</b>
                   {t.detail && <small>{t.detail}</small>}
@@ -132,6 +133,30 @@ export default function TodoPage() {
           </ul>
         </section>
       ))}
+
+      {tasks && (
+        <details className={s.doneSection} open={groups.length === 0}>
+          <summary>완료된 할 일 <span className={s.dim}>{doneCount}개</span></summary>
+          {doneGroups.length === 0 && <p className={s.dim}>아직 없습니다.</p>}
+          {doneGroups.map(([r, list]) => (
+            <section key={r} className={s.section}>
+              <h2>{r} <span className={s.dim}>{list.length}개 완료</span></h2>
+              <ul className={s.list}>
+                {list.map((t) => (
+                  <li key={t.id} className={s.itemDone}>
+                    <button className={s.check} onClick={() => toggle(t)} aria-label="완료 취소">☑</button>
+                    <div className={s.itemText}>
+                      <b>{t.label}</b>
+                      {t.detail && <small>{t.detail}</small>}
+                    </div>
+                    <button className={s.del} onClick={() => remove(t)} aria-label="삭제">✕</button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </details>
+      )}
 
       <footer className={s.foot}>
         <a href="/">← 대시보드</a>
