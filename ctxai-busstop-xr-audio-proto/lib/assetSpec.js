@@ -79,6 +79,9 @@ export const SLOTS = [
   { id: "sfx.inhale", path: "audio.sfx.inhale", kind: "audio",
     file: "sfx_inhale.wav", label: "들숨", role: "사운드", due: "8/11", aug: true,
     critical: true, hint: "이 파일 하나가 2초 지연을 덮습니다" },
+  { id: "vo.announce", path: "audio.voice.lines.announce", kind: "audio",
+    file: "vo_announce.mp3", label: "전광판 안내방송", role: "사운드", due: "9월", aug: false,
+    hint: "\"272번 버스는 5분 후 도착 예정입니다.\" — 정류장_스크립트_v2 §1-6, 안내방송 톤(감정 없이)" },
   ...GENRES.map((g) => ({
     id: `bussfx.${g}`, path: `audio.busSfx.${g}`, kind: "audio",
     file: `bus_${genreName[g]}.wav`, label: `버스 소리 ${GENRE_LABEL[g]}`,
