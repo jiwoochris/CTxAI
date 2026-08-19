@@ -34,7 +34,9 @@ export async function POST(req) {
     return Response.json({ ok: false, error: "할 일 제목이 없습니다" }, { status: 400 });
   }
 
-  const task = await addTask({ role, label, detail: body?.detail?.trim?.() || "" });
+  const task = await addTask({
+    role, label, detail: body?.detail?.trim?.() || "", link: body?.link?.trim?.() || "",
+  });
   return Response.json({ ok: true, task, tasks: await listTasks() });
 }
 

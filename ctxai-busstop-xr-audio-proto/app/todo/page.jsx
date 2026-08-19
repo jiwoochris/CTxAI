@@ -16,6 +16,7 @@ export default function TodoPage() {
   const [role, setRole] = useState(SCRIPT_ROLE_ORDER[0]);
   const [label, setLabel] = useState("");
   const [detail, setDetail] = useState("");
+  const [link, setLink] = useState("");
   const [adding, setAdding] = useState(false);
 
   const load = () => {
@@ -58,13 +59,14 @@ export default function TodoPage() {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, label: label.trim(), detail: detail.trim() }),
+        body: JSON.stringify({ role, label: label.trim(), detail: detail.trim(), link: link.trim() }),
       });
       const json = await res.json();
       if (!json.ok) { setError(json.error || "추가하지 못했습니다"); return; }
       setTasks(json.tasks);
       setLabel("");
       setDetail("");
+      setLink("");
     } catch (e) {
       setError("추가하지 못했습니다 — 서버 연결을 확인해 주세요");
     } finally {
@@ -110,6 +112,12 @@ export default function TodoPage() {
           value={detail}
           onChange={(e) => setDetail(e.target.value)}
         />
+        <input
+          className={s.linkInput}
+          placeholder="결과 링크 (선택)"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+        />
         <button type="submit" disabled={adding || !label.trim()}>+ 추가</button>
       </form>
 
@@ -126,6 +134,7 @@ export default function TodoPage() {
                 <div className={s.itemText}>
                   <b>{t.label}</b>
                   {t.detail && <small>{t.detail}</small>}
+                  {t.link && <a className={s.resultLink} href={t.link}>결과 보기 →</a>}
                 </div>
                 <button className={s.del} onClick={() => remove(t)} aria-label="삭제">✕</button>
               </li>
@@ -148,6 +157,7 @@ export default function TodoPage() {
                     <div className={s.itemText}>
                       <b>{t.label}</b>
                       {t.detail && <small>{t.detail}</small>}
+                      {t.link && <a className={s.resultLink} href={t.link}>결과 보기 →</a>}
                     </div>
                     <button className={s.del} onClick={() => remove(t)} aria-label="삭제">✕</button>
                   </li>

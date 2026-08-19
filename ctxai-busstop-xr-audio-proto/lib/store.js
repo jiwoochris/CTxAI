@@ -325,10 +325,10 @@ export async function listTasks() {
   return writeTasks(seeded);
 }
 
-export async function addTask({ role, label, detail }) {
+export async function addTask({ role, label, detail, link }) {
   const tasks = await listTasks();
   const task = {
-    id: crypto.randomUUID(), role, label, detail: detail || "",
+    id: crypto.randomUUID(), role, label, detail: detail || "", link: link || "",
     done: false, source: "custom", createdAt: new Date().toISOString(),
   };
   tasks.push(task);
