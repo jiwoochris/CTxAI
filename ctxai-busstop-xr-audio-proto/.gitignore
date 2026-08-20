@@ -7,5 +7,6 @@ out
 .env.production.local
 npm-debug.log*
 storage/
+assets/vo/
 .vercel-token
 .env*
