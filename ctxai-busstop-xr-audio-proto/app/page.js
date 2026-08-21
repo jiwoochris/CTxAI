@@ -308,6 +308,10 @@ export default function TeamPage() {
         <a href="/guide">사용설명서</a> ·{" "}
         <a href="/whitebox">화이트박스 테스트 환경</a> ·{" "}
         <a href="/todo">할 일 목록</a> ·{" "}
+        <a href="/vo">대사 오디오 듣기</a> ·{" "}
+        <a href="/sfx">환경 SFX 후보 듣기</a> ·{" "}
+        <a href="/story">⭐ 발표용 시나리오 데모</a> ·{" "}
+        <a href="/judge">판정 대시보드</a> ·{" "}
         매니페스트는 자동으로 만들어집니다 —{" "}
         <a href="/api/manifest?download=1">내려받기</a> ·{" "}
         <a href="/api/health">백엔드 상태</a>
