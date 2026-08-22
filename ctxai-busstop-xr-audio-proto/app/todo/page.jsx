@@ -84,6 +84,24 @@ export default function TodoPage() {
 
   return (
     <main className={s.wrap}>
+      <nav className={s.versionBar}>
+        <div className={`${s.versionGroup} ${s.versionGroupOld}`}>
+          <span className={s.versionLabel}>V1 · 기존 (이산 선택)</span>
+          <div className={s.versionLinks}>
+            <a href="/story">발표용 시나리오 데모</a>
+            <a href="/judge">판정 대시보드</a>
+          </div>
+        </div>
+        <div className={`${s.versionGroup} ${s.versionGroupNew}`}>
+          <span className={s.versionLabel}>V2 · 신규 (연속 블렌딩, 실험적)</span>
+          <div className={s.versionLinks}>
+            <a href="/story-v2">🆕 시나리오 데모</a>
+            <a href="/judge-v2">🆕 판정 대시보드</a>
+            <a href="/guide?doc=tech-direction">기술 발전 방향 문서</a>
+          </div>
+        </div>
+      </nav>
+
       <header className={s.head}>
         <div>
           <h1>할 일</h1>
@@ -169,7 +187,7 @@ export default function TodoPage() {
       )}
 
       <footer className={s.foot}>
-        <a href="/">← 대시보드</a>
+        <a href="/upload">파일 올리는 곳 →</a>
       </footer>
     </main>
   );

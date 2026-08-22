@@ -9,6 +9,51 @@
 .dim { color: #8c9098; margin: 0; font-size: 13.5px; max-width: 56ch; }
 .dim a { color: #9aa8c0; }
 
+/* ── 버전 네비게이션 (구버전/신버전 구분) ──────────────── */
+.versionBar {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0 0 24px;
+  padding: 14px 16px;
+  border: 1px solid #2a2d33;
+  border-radius: 12px;
+  background: #16181c;
+}
+.versionGroup {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+.versionGroupOld { background: rgba(255, 255, 255, 0.03); border: 1px solid #2a2d33; }
+.versionGroupNew { background: rgba(143, 174, 149, 0.08); border: 1px solid rgba(143, 174, 149, 0.35); }
+
+.versionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8c9098;
+}
+.versionGroupNew .versionLabel { color: #8fae95; }
+
+.versionLinks { display: flex; gap: 8px; flex-wrap: wrap; }
+.versionLinks a {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #3a3d44;
+  color: #e8e8ea;
+  white-space: nowrap;
+}
+.versionGroupOld a:hover { border-color: #5a6270; }
+.versionGroupNew a { border-color: rgba(143, 174, 149, 0.5); }
+.versionGroupNew a:hover { border-color: #8fae95; background: rgba(143, 174, 149, 0.12); }
+
 .head {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 24px; flex-wrap: wrap; margin-bottom: 20px;
