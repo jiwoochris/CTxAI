@@ -1,0 +1,333 @@
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0b0d;
+  font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+  color: #f2f0ec;
+}
+
+.bgLayer {
+  position: absolute;
+  inset: 0;
+}
+
+.bgImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: fadeIn 900ms ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.15) 38%, rgba(0, 0, 0, 0.35) 100%);
+  pointer-events: none;
+}
+
+/* v2 전용 — 보조 장르 비중만큼 색감을 얹어 "배합" 느낌을 낸다 */
+.tintOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+  transition: opacity 900ms ease;
+}
+
+.topBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  z-index: 5;
+}
+
+.homeLink {
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  font-size: 13px;
+}
+.homeLink:hover { color: rgba(255, 255, 255, 0.9); }
+
+.genreChip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.genreDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #ccc);
+  box-shadow: 0 0 8px var(--accent, #ccc);
+}
+
+.resetBtn {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.resetBtn:hover { background: rgba(0, 0, 0, 0.55); }
+
+/* ── 진입 화면(장르 선택) ── */
+.intro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  padding: 24px;
+}
+
+.introCard {
+  width: min(560px, 92vw);
+  background: rgba(10, 10, 12, 0.55);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 34px 32px;
+  text-align: center;
+  animation: fadeIn 700ms ease both;
+}
+
+.introEyebrow {
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 10px;
+}
+
+.introTitle {
+  font-size: 26px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.introSub {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 26px;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.choiceBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  text-align: left;
+}
+.choiceBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.choiceBtn small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+.choiceArrow { opacity: 0.6; }
+
+.announceBtn {
+  margin-top: 18px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.announceBtn:hover { color: rgba(255, 255, 255, 0.85); }
+
+/* ── 대사 자막 바 ── */
+.subtitleBar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 22px 26px 26px;
+  animation: slideUp 500ms ease both;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.subtitleInner {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.progressTrack {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.progressFill {
+  height: 100%;
+  background: var(--accent, #fff);
+  transition: width 300ms ease;
+}
+
+.seqRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 6px;
+}
+.seqBadge {
+  color: var(--accent, #fff);
+  font-weight: 700;
+}
+
+.lineText {
+  font-size: clamp(18px, 2.4vw, 26px);
+  line-height: 1.5;
+  font-weight: 500;
+  min-height: 2.4em;
+  margin: 0 0 16px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ctrlBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctrlBtn:hover { background: rgba(0, 0, 0, 0.55); }
+.ctrlBtn:disabled { opacity: 0.3; cursor: default; }
+
+.ctrlBtnMain {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--accent, #fff);
+  background: var(--accent, #fff);
+  color: #14151a;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.replayHint {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.done {
+  color: var(--accent, #fff);
+  font-weight: 600;
+}
+
+/* ── 관찰 / 판정 단계 ── */
+.hiddenVideo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.observeWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 4;
+}
+
+.observeDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent, #fff);
+  box-shadow: 0 0 0 0 var(--accent, #fff);
+  animation: pulse 1.6s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
+  70% { box-shadow: 0 0 0 22px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+.observeText {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.judgeText {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 10px 18px;
+  border-radius: 999px;
+  animation: fadeIn 500ms ease both;
+}
+

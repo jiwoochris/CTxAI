@@ -4,19 +4,20 @@
 // 현황판 · 업로드 판정 · manifest 생성이 전부 이 표에서 나옵니다.
 // 규격 문서(Bus/규격/명명규칙.md)와 짝입니다 — 여기를 고치면 그 문서도 고쳐야 합니다.
 
-export const GENRES = ["H", "R", "C", "F"];
+// 판타지(F) 드롭 확정 — Bus/규격/구현_리스크와_지원_필요사항.md §3 (2026-08-22).
+// 3축(공포·로맨스·코미디)만 남긴다.
+export const GENRES = ["H", "R", "C"];
 
-export const GENRE_LABEL = { H: "🖤 공포", R: "💗 로맨스", C: "💛 코미디", F: "💜 판타지" };
+export const GENRE_LABEL = { H: "🖤 공포", R: "💗 로맨스", C: "💛 코미디" };
 
 export const PRESETS = [
   { name: "lp_neutral", label: "중립", due: "8/14", aug: true },
   { name: "lp_H", label: "🖤 공포", due: "8/14", aug: true },
   { name: "lp_R", label: "💗 로맨스", due: "8/14", aug: true },
   { name: "lp_C", label: "💛 코미디", due: "8/14", aug: true },
-  { name: "lp_F", label: "💜 판타지", due: "8/14", aug: true },
 ];
 
-const genreName = { H: "horror", R: "romance", C: "comedy", F: "fantasy" };
+const genreName = { H: "horror", R: "romance", C: "comedy" };
 
 // kind: model | audio | dialogue
 // aug : 8월 시연에 필요한가 (현황판의 「남은 일」 계산 기준)
