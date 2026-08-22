@@ -264,12 +264,21 @@ export function judgeFromBehavior(metrics) {
   const defensiveSig = clamp01(rawDefensiveSig * (1 - (metrics.maxAmusement || 0) * 0.8));
   const sustainedSig = clamp01(metrics.sustainedSec / (SUSTAINED_SEC_TH * 1.5));
   const slowRecoverySig = clamp01(metrics.recoveryMs / SLOW_RECOVERY_MS);
-  const H = (defensiveSig + sustainedSig + slowRecoverySig) / 3;
+  // v2.md §2-4는 "방어 반응 그리고 지속 경계 그리고 느린 회복 — 셋 다"라고
+  // 명시한다(AND). 이전엔 이 셋을 평균해서, 방어 반응이 전혀 없어도(defensiveSig=0)
+  // 그냥 한 곳을 오래 차분히 쳐다보기만 하면(sustainedSig·slowRecoverySig만 높음)
+  // 평균이 올라가 공포로 오판되는 버그가 있었다 — 정확히 로맨스의 진짜 신호
+  // ("관심을 갖고 계속 지켜봄")를 공포로 뒤집어 읽는 구조였다. 평균 대신
+  // 최솟값(퍼지 AND)을 써서, 셋 중 하나라도 0에 가까우면 H 전체가 낮게 유지되게 한다.
+  const H = Math.min(defensiveSig, sustainedSig, slowRecoverySig);
 
   const exploreSig = clamp01(metrics.reversals / 3);
   const fastRecoverySig = clamp01(1 - metrics.recoveryMs / FAST_RECOVERY_MS);
   const amusementSig = metrics.maxAmusement || 0;
-  const C = (exploreSig + Math.max(fastRecoverySig, 0) + amusementSig) / 3;
+  // 마찬가지로 "탐색 그리고 빠른 회복"은 AND(최솟값)로, 표정에서 온 웃음
+  // 증거(amusementSig)는 움직임 패턴과 무관하게 독립적으로 코미디를 지지할 수
+  // 있어야 하므로 OR(최댓값)로 합친다.
+  const C = Math.max(Math.min(exploreSig, fastRecoverySig), amusementSig);
 
   const R = clamp01(1 - Math.max(H, C));
   const sum = R + H + C || 1;
