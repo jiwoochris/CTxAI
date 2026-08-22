@@ -197,6 +197,24 @@ export default function TeamPage() {
     >
       {dragging && <div className={s.veil}><span>여기에 놓으세요</span></div>}
 
+      <nav className={s.versionBar}>
+        <div className={`${s.versionGroup} ${s.versionGroupOld}`}>
+          <span className={s.versionLabel}>V1 · 기존 (이산 선택)</span>
+          <div className={s.versionLinks}>
+            <a href="/story">발표용 시나리오 데모</a>
+            <a href="/judge">판정 대시보드</a>
+          </div>
+        </div>
+        <div className={`${s.versionGroup} ${s.versionGroupNew}`}>
+          <span className={s.versionLabel}>V2 · 신규 (연속 블렌딩, 실험적)</span>
+          <div className={s.versionLinks}>
+            <a href="/story-v2">🆕 시나리오 데모</a>
+            <a href="/judge-v2">🆕 판정 대시보드</a>
+            <a href="/guide?doc=tech-direction">기술 발전 방향 문서</a>
+          </div>
+        </div>
+      </nav>
+
       <header className={s.head}>
         <div>
           <h1>정류장 — 파일 올리는 곳</h1>
@@ -310,11 +328,6 @@ export default function TeamPage() {
         <a href="/todo">할 일 목록</a> ·{" "}
         <a href="/vo">대사 오디오 듣기</a> ·{" "}
         <a href="/sfx">환경 SFX 후보 듣기</a> ·{" "}
-        <a href="/story">⭐ 발표용 시나리오 데모 (v1·이산 선택)</a> ·{" "}
-        <a href="/judge">판정 대시보드 (v1)</a> ·{" "}
-        <a href="/story-v2">🆕 시나리오 데모 (v2·연속 블렌딩, 실험적)</a> ·{" "}
-        <a href="/judge-v2">판정 대시보드 (v2)</a> ·{" "}
-        <a href="/guide?doc=tech-direction">기술 발전 방향</a> ·{" "}
         매니페스트는 자동으로 만들어집니다 —{" "}
         <a href="/api/manifest?download=1">내려받기</a> ·{" "}
         <a href="/api/health">백엔드 상태</a>
