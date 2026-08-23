@@ -1,5 +1,9 @@
 [
   {
+    "date": "2026-08-24",
+    "text": "Add V2 asset slots, head-pose pilot logger, and V2 dialogue CSV checker"
+  },
+  {
     "date": "2026-08-23",
     "text": "Add team onboarding guide"
   },
@@ -26,9 +30,5 @@
   {
     "date": "2026-08-20",
     "text": "Add ElevenLabs batch dialogue synthesis script"
-  },
-  {
-    "date": "2026-08-20",
-    "text": "Add result links to completed to-dos"
   }
 ]
