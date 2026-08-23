@@ -98,6 +98,7 @@ export default function TodoPage() {
             <a href="/story-v2">🆕 시나리오 데모</a>
             <a href="/judge-v2">🆕 판정 대시보드</a>
             <a href="/guide?doc=tech-direction">기술 발전 방향 문서</a>
+            <a href="/onepager.html" target="_blank" rel="noreferrer">중간 발표 원페이지</a>
           </div>
         </div>
       </nav>
