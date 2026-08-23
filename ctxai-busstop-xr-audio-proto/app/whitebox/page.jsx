@@ -9,10 +9,11 @@
 // 조명은 이제 PlayCanvas 에디터 북마크릿(예전 app/tool, public/preset-tool.js — 제거함) 대신
 // 여기서 직접 조절·저장합니다. 저장 형식은 그대로 규격/preset/preset.schema.json.
 
-import { Component, Suspense, useEffect, useState } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Component, Suspense, useEffect, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { XR, createXRStore } from "@react-three/xr";
+import { Euler, MathUtils } from "three";
 import { SLOT_BY_ID, PRESETS } from "../../lib/assetSpec";
 import s from "./whitebox.module.css";
 
@@ -92,6 +93,64 @@ function ExposureSync({ value }) {
   useEffect(() => {
     gl.toneMappingExposure = value ?? 1;
   }, [gl, value]);
+  return null;
+}
+
+// 머리 포즈 로깅 — 행동 판정 파일럿 테스트용 (Bus/규격/판정_기준.md, 할 일 "행동 판정
+// 파일럿 테스트 준비"). v2.md §2의 임계값(2초 지속반응, 5~8초 자세 기준선 등)은 아직
+// 규칙만 있고 실측이 없다. 여기서는 임계값을 코딩하지 않고, 실제 사람이 5개 단서에
+// 반응할 때 각도가 어떻게 움직이는지 숫자로만 관찰한다 — 헤드셋(카메라 quaternion)
+// 경로 전용. 웹캠 경로의 대응물은 lib/behaviorSense.js.
+function HeadPoseTelemetry({ thresholdDeg, resetSignal, onSample }) {
+  const { camera } = useThree();
+  const baseline = useRef(null);
+  const acc = useRef({ maxMagDeg: 0, aboveSec: 0, maxAboveSec: 0, reversals: 0, wasAbove: false, recoveryMs: null, aboveExitAt: null });
+  const lastEmit = useRef(0);
+
+  useEffect(() => {
+    const e = new Euler().setFromQuaternion(camera.quaternion, "YXZ");
+    baseline.current = { yaw: MathUtils.radToDeg(e.y), pitch: MathUtils.radToDeg(e.x) };
+    acc.current = { maxMagDeg: 0, aboveSec: 0, maxAboveSec: 0, reversals: 0, wasAbove: false, recoveryMs: null, aboveExitAt: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetSignal]);
+
+  useFrame((_, delta) => {
+    if (!baseline.current) return;
+    const e = new Euler().setFromQuaternion(camera.quaternion, "YXZ");
+    const yaw = MathUtils.radToDeg(e.y);
+    const pitch = MathUtils.radToDeg(e.x);
+    const dYaw = yaw - baseline.current.yaw;
+    const dPitch = pitch - baseline.current.pitch;
+    const mag = Math.sqrt(dYaw * dYaw + dPitch * dPitch);
+    const a = acc.current;
+    a.maxMagDeg = Math.max(a.maxMagDeg, mag);
+    const above = mag > thresholdDeg;
+    if (above) {
+      a.aboveSec += delta;
+      a.maxAboveSec = Math.max(a.maxAboveSec, a.aboveSec);
+      if (!a.wasAbove) { a.reversals += 1; a.recoveryMs = null; a.aboveExitAt = null; }
+      a.wasAbove = true;
+    } else {
+      if (a.wasAbove) a.aboveExitAt = Date.now();
+      a.wasAbove = false;
+      a.aboveSec = 0;
+      if (a.aboveExitAt != null && mag < thresholdDeg * 0.3) {
+        a.recoveryMs = Date.now() - a.aboveExitAt;
+        a.aboveExitAt = null;
+      }
+    }
+
+    const now = performance.now();
+    if (now - lastEmit.current > 120) {
+      lastEmit.current = now;
+      onSample({
+        t: Date.now(), yaw, pitch, dYaw, dPitch, mag, above,
+        maxMagDeg: a.maxMagDeg, aboveSec: a.aboveSec, maxAboveSec: a.maxAboveSec,
+        reversals: a.reversals, recoveryMs: a.recoveryMs,
+      });
+    }
+  });
+
   return null;
 }
 
@@ -215,6 +274,45 @@ function LightingPanel({ presetName, setPresetName, lighting, setLighting, onLoa
   );
 }
 
+function fmt(n, digits = 1) {
+  return typeof n === "number" && Number.isFinite(n) ? n.toFixed(digits) : "—";
+}
+
+function HeadPoseLogPanel({ thresholdDeg, setThresholdDeg, onReset, live, recording, toggleRecording, downloadCsv, sampleCount }) {
+  return (
+    <section className={s.legend}>
+      <h2>머리 포즈 로깅 — 행동 판정 파일럿 테스트용</h2>
+      <p className={s.dim}>
+        Enter VR로 헤드셋을 쓰고 각 사건을 볼 때 각도가 어떻게 움직이는지 관찰합니다.
+        임계값은 아직 코딩하지 않았습니다 — 여기서 숫자를 먼저 보고 v2.md §2 값을 검증합니다.
+      </p>
+      <div className={s.field}>
+        <label>기준선 편차 임계값 {thresholdDeg}°</label>
+        <input type="range" min="4" max="40" step="1" value={thresholdDeg}
+          onChange={(e) => setThresholdDeg(Number(e.target.value))} />
+      </div>
+      <div className={s.presetBtns}>
+        <button onClick={onReset}>🎯 기준점 재설정</button>
+        <button onClick={toggleRecording}>{recording ? "⏹ 기록 정지" : "⏺ 기록 시작"}</button>
+        <button onClick={downloadCsv} disabled={!sampleCount}>⬇ CSV 다운로드</button>
+      </div>
+      {live ? (
+        <ul className={s.list}>
+          <li><b>편차 (yaw / pitch)</b><span>{fmt(live.dYaw)}° / {fmt(live.dPitch)}°</span></li>
+          <li><b>편차 크기 · 최대</b><span>{fmt(live.mag)}° · {fmt(live.maxMagDeg)}°</span></li>
+          <li><b>임계값 초과 중</b><span>{live.above ? `예 (${fmt(live.aboveSec)}s)` : "아니오"}</span></li>
+          <li><b>최장 지속 반응</b><span>{fmt(live.maxAboveSec)}s</span></li>
+          <li><b>가장 최근 회복 시간</b><span>{live.recoveryMs != null ? `${live.recoveryMs}ms` : "—"}</span></li>
+          <li><b>기준선 재통과 횟수</b><span>{live.reversals}</span></li>
+        </ul>
+      ) : (
+        <p className={s.dim}>Canvas가 준비되면 숫자가 나타납니다 — OrbitControls로 드래그해서 먼저 확인해 보세요.</p>
+      )}
+      {recording && <p className={s.msg}>기록 중 — {sampleCount}개 샘플</p>}
+    </section>
+  );
+}
+
 export default function WhiteboxPage() {
   const [statuses, setStatuses] = useState({});
   const [loaded, setLoaded] = useState(false);
@@ -222,6 +320,49 @@ export default function WhiteboxPage() {
   const [presetName, setPresetName] = useState("lp_neutral");
   const [lighting, setLighting] = useState(() => blankPreset("lp_neutral"));
   const [presetMsg, setPresetMsg] = useState("");
+
+  // 머리 포즈 로깅 (행동 판정 파일럿 테스트용)
+  const [poseThresholdDeg, setPoseThresholdDeg] = useState(12);
+  const [poseResetSignal, setPoseResetSignal] = useState(0);
+  const [poseLive, setPoseLive] = useState(null);
+  const [poseRecording, setPoseRecording] = useState(false);
+  const poseRecordingRef = useRef(false);
+  const poseBufferRef = useRef([]);
+  const [poseSampleCount, setPoseSampleCount] = useState(0);
+
+  function togglePoseRecording() {
+    setPoseRecording((v) => {
+      const next = !v;
+      poseRecordingRef.current = next;
+      if (next) { poseBufferRef.current = []; setPoseSampleCount(0); }
+      return next;
+    });
+  }
+
+  function handlePoseSample(sample) {
+    setPoseLive(sample);
+    if (poseRecordingRef.current) {
+      poseBufferRef.current.push(sample);
+      setPoseSampleCount(poseBufferRef.current.length);
+    }
+  }
+
+  function downloadPoseCsv() {
+    const rows = poseBufferRef.current;
+    if (!rows.length) return;
+    const header = "t,yaw,pitch,dYaw,dPitch,mag,above,aboveSec,maxAboveSec,maxMagDeg,reversals,recoveryMs\n";
+    const body = rows
+      .map((r) => [r.t, r.yaw.toFixed(2), r.pitch.toFixed(2), r.dYaw.toFixed(2), r.dPitch.toFixed(2), r.mag.toFixed(2),
+        r.above ? 1 : 0, r.aboveSec.toFixed(2), r.maxAboveSec.toFixed(2), r.maxMagDeg.toFixed(2), r.reversals, r.recoveryMs ?? ""].join(","))
+      .join("\n");
+    const blob = new Blob([header + body], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `headpose_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   useEffect(() => {
     fetch("/api/manifest")
@@ -306,6 +447,7 @@ export default function WhiteboxPage() {
             <XR store={xrStore}>
               <Stage statuses={statuses} lighting={lighting} />
               <OrbitControls target={[0, 1, 0]} />
+              <HeadPoseTelemetry thresholdDeg={poseThresholdDeg} resetSignal={poseResetSignal} onSample={handlePoseSample} />
             </XR>
           </Canvas>
         </div>
@@ -320,6 +462,17 @@ export default function WhiteboxPage() {
           msg={presetMsg}
         />
       </div>
+
+      <HeadPoseLogPanel
+        thresholdDeg={poseThresholdDeg}
+        setThresholdDeg={setPoseThresholdDeg}
+        onReset={() => setPoseResetSignal((n) => n + 1)}
+        live={poseLive}
+        recording={poseRecording}
+        toggleRecording={togglePoseRecording}
+        downloadCsv={downloadPoseCsv}
+        sampleCount={poseSampleCount}
+      />
 
       <section className={s.legend}>
         <h2>표시된 자리 {loaded ? "" : "— 불러오는 중…"}</h2>

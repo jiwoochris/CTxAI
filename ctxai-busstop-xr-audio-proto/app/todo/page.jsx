@@ -4,10 +4,11 @@
 // 팀 누구나 새 할 일을 추가·완료 체크·삭제할 수 있습니다.
 // 저장은 /api/tasks (Supabase의 tasks.json) — 대시보드(app/page.js)와는 별도 페이지입니다.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SCRIPT_ROLE_ORDER, SCRIPT_DOC_SLUG, SCRIPT_DOC_LABEL, SCRIPT_V2_DOC_SLUG, SCRIPT_V2_DOC_LABEL,
 } from "../../lib/scriptTasks";
+import { DEV_SCREENS, REPORTS, MILESTONES } from "../../lib/dashboardData";
 import s from "./todo.module.css";
 
 export default function TodoPage() {
@@ -82,38 +83,97 @@ export default function TodoPage() {
     : [];
   const doneCount = tasks?.filter((t) => t.done).length ?? 0;
 
+  const roleProgress = useMemo(() => {
+    if (!tasks) return [];
+    return SCRIPT_ROLE_ORDER.map((r) => {
+      const roleTasks = tasks.filter((t) => t.role === r);
+      const done = roleTasks.filter((t) => t.done).length;
+      return { role: r, done, total: roleTasks.length };
+    }).filter((r) => r.total > 0);
+  }, [tasks]);
+
   return (
     <main className={s.wrap}>
-      <nav className={s.versionBar}>
-        <div className={`${s.versionGroup} ${s.versionGroupOld}`}>
-          <span className={s.versionLabel}>V1 · 기존 (이산 선택)</span>
-          <div className={s.versionLinks}>
-            <a href="/story">발표용 시나리오 데모</a>
-            <a href="/judge">판정 대시보드</a>
-          </div>
-        </div>
-        <div className={`${s.versionGroup} ${s.versionGroupNew}`}>
-          <span className={s.versionLabel}>V2 · 신규 (연속 블렌딩, 실험적)</span>
-          <div className={s.versionLinks}>
-            <a href="/story-v2">🆕 시나리오 데모</a>
-            <a href="/judge-v2">🆕 판정 대시보드</a>
-            <a href="/guide?doc=tech-direction">기술 발전 방향 문서</a>
-            <a href="/onepager.html" target="_blank" rel="noreferrer">중간 발표 원페이지</a>
-          </div>
-        </div>
-      </nav>
-
-      <header className={s.head}>
-        <div>
-          <h1>할 일</h1>
-          <p className={s.dim}>
-            {SCRIPT_DOC_LABEL}을 정리한 초안으로 시작했습니다 — 필요하면 아래에서 자유롭게 추가하세요.
-            {" "}<a href={`/guide?doc=${SCRIPT_DOC_SLUG}`}>v1.1 보기 →</a>
-            {" · "}<a href={`/guide?doc=${SCRIPT_V2_DOC_SLUG}`}>{SCRIPT_V2_DOC_LABEL} 보기 →</a>
-          </p>
-        </div>
-        {tasks && <div className={s.count}><b>{doneCount}</b><span>/{tasks.length} 완료</span></div>}
+      <header className={s.pageHead}>
+        <h1>정류장 대시보드</h1>
+        <p className={s.dim}>진행 상황 · 개발 중인 화면 · 발표 자료 · 할 일을 한 곳에서 봅니다.</p>
       </header>
+
+      {/* ── 진행 상황 ───────────────────────────────────── */}
+      <section className={s.block}>
+        <h2 className={s.blockTitle}>📊 진행 상황</h2>
+        {tasks && (
+          <div className={s.progressWrap}>
+            <div className={s.progressOverall}>
+              <b>{doneCount}</b><span>/{tasks.length} 완료</span>
+            </div>
+            <div className={s.progressRows}>
+              {roleProgress.map(({ role, done, total }) => (
+                <div key={role} className={s.progressRow}>
+                  <span className={s.progressRole}>{role}</span>
+                  <div className={s.progressBar}>
+                    <div className={s.progressFill} style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+                  </div>
+                  <span className={s.progressNum}>{done}/{total}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <ul className={s.milestones}>
+          {MILESTONES.map((m) => (
+            <li key={m.date + m.text}><span className={s.milestoneDate}>{m.date}</span>{m.text}</li>
+          ))}
+        </ul>
+      </section>
+
+      {/* ── 개발 중인 화면 ───────────────────────────────── */}
+      <section className={s.block}>
+        <h2 className={s.blockTitle}>🎬 개발 중인 화면</h2>
+        {DEV_SCREENS.map((g) => (
+          <div key={g.group} className={s.screenGroup}>
+            <h3 className={s.screenGroupTitle}>{g.group}</h3>
+            <div className={s.screenGrid}>
+              {g.items.map((it) => (
+                <a key={it.href} href={it.href} className={s.screenCard}>
+                  <div className={s.screenCardHead}>
+                    <span className={`${s.tag} ${s["tag_" + it.tagKind]}`}>{it.tag}</span>
+                    <b>{it.title}</b>
+                  </div>
+                  <p>{it.desc}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* ── 발표 자료 ───────────────────────────────────── */}
+      <section className={s.block}>
+        <h2 className={s.blockTitle}>📑 발표 자료</h2>
+        <div className={s.reportGrid}>
+          {REPORTS.map((r) => (
+            <a key={r.href} href={r.href} className={s.reportCard} target={r.external ? "_blank" : undefined} rel={r.external ? "noreferrer" : undefined}>
+              <b>{r.title}</b>
+              <p>{r.desc}</p>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 할 일 ───────────────────────────────────────── */}
+      <section className={s.block}>
+        <header className={s.head}>
+          <div>
+            <h2 className={s.blockTitle}>✅ 할 일</h2>
+            <p className={s.dim}>
+              {SCRIPT_DOC_LABEL}을 정리한 초안으로 시작했습니다 — 필요하면 아래에서 자유롭게 추가하세요.
+              {" "}<a href={`/guide?doc=${SCRIPT_DOC_SLUG}`}>v1.1 보기 →</a>
+              {" · "}<a href={`/guide?doc=${SCRIPT_V2_DOC_SLUG}`}>{SCRIPT_V2_DOC_LABEL} 보기 →</a>
+            </p>
+          </div>
+          {tasks && <div className={s.count}><b>{doneCount}</b><span>/{tasks.length} 완료</span></div>}
+        </header>
 
       <form className={s.addForm} onSubmit={submit}>
         <select value={role} onChange={(e) => setRole(e.target.value)}>
@@ -186,6 +246,7 @@ export default function TodoPage() {
           ))}
         </details>
       )}
+      </section>
 
       <footer className={s.foot}>
         <a href="/upload">파일 올리는 곳 →</a>

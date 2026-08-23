@@ -8,7 +8,9 @@
 // 3축(공포·로맨스·코미디)만 남긴다.
 export const GENRES = ["H", "R", "C"];
 
-export const GENRE_LABEL = { H: "🖤 공포", R: "💗 로맨스", C: "💛 코미디" };
+// C = 블랙코미디. 코드는 그대로 재사용 확정 (Bus/규격/방향전환_업무재분장.md, 2026-08-22) —
+// 새 장르 코드를 만들지 않는다.
+export const GENRE_LABEL = { H: "🖤 공포", R: "💗 로맨스", C: "💛 블랙코미디" };
 
 export const PRESETS = [
   { name: "lp_neutral", label: "중립", due: "8/14", aug: true },
@@ -31,13 +33,26 @@ export const SLOTS = [
   { id: "structure.silhouette", path: "models.structure[silhouette]", kind: "model",
     file: "prop_silhouette.glb", label: "옆사람 실루엣", role: "아트", due: "8/15", aug: true,
     hint: "애니메이션 없어도 됨" },
+  // 가로등(공포용 조도 변화 트리거)은 새 슬롯이 아니라 이 구조물 배열에 자유롭게
+  // 추가하면 됩니다 (id: "streetlamp" 등) — 명명규칙.md §2.1 참고. 트리거 자체는
+  // lighting.streetlamp (manifestBuild.js) 로 선언만 해 두었고, 실제 깜빡임 연출은
+  // /whitebox 조명 시스템 쪽 별도 작업입니다.
   { id: "sign.model", path: "models.sign.model", kind: "model",
     file: "prop_sign.glb", label: "노선도 표지판", role: "아트", due: "8/12", aug: true,
     hint: "이름 자리를 평면 사각형으로 분리 + UV 0~1", critical: true },
 
   { id: "npc.model", path: "models.npc.model", kind: "model",
-    file: "npc_companion.glb", label: "NPC 본체", role: "아트", due: "9월", aug: false,
+    file: "npc_companion.glb", label: "NPC 본체 (로맨스 · 그녀)", role: "아트", due: "9월", aug: false,
     hint: "머리 본 이름을 Head 로" },
+
+  // 공포·블랙코미디는 로맨스 "그녀"와 다른 인물이라 몸체 자체가 따로 필요합니다
+  // (V2 반영 — Bus/규격/방향전환_업무재분장.md). 태도 클립은 아래 npc.clip.*로 계속 공용.
+  { id: "npc.model.H", path: "models.npc.variants.H", kind: "model",
+    file: "npc_horror.glb", label: `NPC 본체 ${GENRE_LABEL.H}`, role: "아트", due: "9월", aug: false,
+    hint: "중년 남성 — 로맨스 쪽과 같은 색·무늬 우비를 미묘하게 다르게. 머리 본 이름을 Head 로" },
+  { id: "npc.model.C", path: "models.npc.variants.C", kind: "model",
+    file: "npc_comedy.glb", label: `NPC 본체 ${GENRE_LABEL.C}`, role: "아트", due: "9월", aug: false,
+    hint: "70대 할머니 — 지팡이·가방. 머리 본 이름을 Head 로" },
 
   ...GENRES.map((g) => ({
     id: `npc.clip.${g}`, path: `models.npc.clips.${g}`, kind: "model",
@@ -46,6 +61,23 @@ export const SLOTS = [
   })),
   { id: "npc.clip.neutral", path: "models.npc.clips.neutral", kind: "model",
     file: "att_neutral.glb", label: "NPC 태도 중립", role: "아트", due: "9월", aug: false },
+
+  // ── 아트 · 움직이는 요소 (V2 반영) ─────────────────────
+  { id: "moving.truck", path: "models.moving.truck", kind: "model",
+    file: "prop_truck.glb", label: "포터형 트럭", role: "아트", due: "9월", aug: false,
+    hint: "물웅덩이 튀김 이벤트용. 루트 모션 없이 제자리 — 이동은 코드가 제어" },
+  { id: "moving.cat", path: "models.moving.cat", kind: "model",
+    file: "prop_cat.glb", label: "고양이", role: "아트", due: "9월", aug: false,
+    hint: "애니메이션 클립 포함: 뛰어들어옴 → 멈춤 → 도망. 클립 이름은 자유 — 알려주시면 코드에서 매핑" },
+
+  // ── 아트 · 포스터 텍스처 (V2 반영) ─────────────────────
+  // GLB 안 텍스처가 아니라 독립 이미지 파일 — 이벤트 전후로 교체합니다.
+  { id: "texture.poster.original", path: "textures.poster.original", kind: "texture",
+    file: "tex_poster_original.png", label: "포스터 텍스처 (원본)", role: "아트", due: "9월", aug: false,
+    hint: "도입부 기본 상태 — 비 안 맞은 버전" },
+  { id: "texture.poster.torn", path: "textures.poster.torn", kind: "texture",
+    file: "tex_poster_torn.png", label: "포스터 텍스처 (찢긴)", role: "아트", due: "9월", aug: false,
+    hint: "사건 이후 교체되는 버전" },
 
   ...GENRES.map((g) => ({
     id: `prop.${g}`, path: `models.genreProps.${g}`, kind: "model",
@@ -90,11 +122,14 @@ export const SLOTS = [
   })),
 
   // ── 기획 ──────────────────────────────────────────────
+  // V2 양식(장르·순번·대사·최대길이(초)·감정태그·파일명)으로 교체 — 배합ID·태도·
+  // {noun} 콜백은 연속 블렌딩으로 방향이 바뀌면서 빠졌습니다. 실제 완성본은
+  // Bus/규격/대사양식_v2.csv (46줄, 이미 채워져 있음).
   { id: "dialogue.csv", path: "dialogue.source", kind: "dialogue",
-    file: "대사양식.csv", label: "대사 표", role: "기획", due: "8/11", aug: true,
-    hint: "Sheets 에서 CSV 로 내보내 올려 주세요",
+    file: "대사양식_v2.csv", label: "대사 표 (V2)", role: "기획", due: "완료", aug: true,
+    hint: "Sheets 에서 CSV 로 내보내 올려 주세요 — 장르는 H/R/C만",
     templateUrl: "/templates/dialogue-template.csv",
-    templateName: "대사양식.csv" },
+    templateName: "대사양식_v2.csv" },
 ];
 
 export const SLOT_BY_ID = Object.fromEntries(SLOTS.map((s) => [s.id, s]));
@@ -127,6 +162,7 @@ export const KIND_EXT = {
   model: [".glb"],
   audio: [".mp3", ".wav"],
   dialogue: [".csv"],
+  texture: [".png", ".jpg", ".jpeg"],
 };
 
 export function extOf(filename) {
@@ -141,6 +177,6 @@ export const LIMITS = {
   bgmLufsTarget: -20,        // 권장 integrated LUFS
   bgmLufsSpreadMax: 1.0,     // 네 트랙 사이 허용 편차 (dB)
   bgmTruePeakTarget: -9,     // 목표 트루 피크 (D7 — 못 맞춰도 됨)
-  fourTrackSumDb: 6.0,       // 네 트랙 동시 재생 시 합산 증가분
+  bgmSumDb: 6.0,             // 장르 트랙 동시 재생 시 합산 증가분 (판타지 드롭 전엔 "네 트랙"이었음)
   inhaleMaxSec: 2.5,
 };

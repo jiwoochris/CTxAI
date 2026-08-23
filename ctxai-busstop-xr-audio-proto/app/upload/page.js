@@ -10,6 +10,7 @@ import { SLOTS, guessSlot, extOf, KIND_EXT } from "@/lib/assetSpec";
 import { measureAudio } from "@/lib/measure/audio";
 import { measureGlb } from "@/lib/measure/glb";
 import { measureDialogue } from "@/lib/measure/dialogue";
+import { measureTexture } from "@/lib/measure/texture";
 import s from "./page.module.css";
 
 const ROLES = ["전체", "아트", "사운드", "기획"];
@@ -74,6 +75,7 @@ export default function TeamPage() {
     if (slot.kind === "audio") return measureAudio(file);
     if (slot.kind === "model") return measureGlb(file, slot);
     if (slot.kind === "dialogue") return measureDialogue(await file.text());
+    if (slot.kind === "texture") return measureTexture(file);
     return null;
   }
 
@@ -390,9 +392,9 @@ function Row({ row, onReplace, onChoose, onDeleteVariant }) {
         <div className={s.detail}>
           {row.hint && <p>{row.hint}</p>}
           <p className={s.dim}>담당 {row.role} · 마감 {row.due} · 기대 이름 <code>{row.file}</code></p>
-          {m?.byLayer && (
+          {m?.byGenre && (
             <p className={s.dim}>
-              {Object.entries(m.byLayer).map(([k, v]) => `${k} ${v.filled}/${v.total}`).join(" · ")}
+              {Object.entries(m.byGenre).map(([k, v]) => `${k} ${v.filled}/${v.total}`).join(" · ")}
             </p>
           )}
           {m?.truePeakApprox && <p className={s.dim}>트루 피크는 4배 오버샘플 근사입니다</p>}
@@ -449,6 +451,10 @@ function Preview({ row }) {
 
   if (row.kind === "audio") {
     return <audio controls preload="none" src={fileUrl} className={s.player} />;
+  }
+
+  if (row.kind === "texture") {
+    return <img src={fileUrl} alt={row.label} style={{ maxWidth: "100%", borderRadius: 8, marginTop: 8 }} />;
   }
 
   if (row.kind === "dialogue") {

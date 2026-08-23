@@ -34,26 +34,26 @@ function makeWav({ freq = 1000, seconds = 3, amp = 0.1, rate = 48000 }) {
   return new File([buf], "selftest.wav", { type: "audio/wav" });
 }
 
-// 정상 케이스는 16벌을 다 갖춰야 합니다 — 실제로 올라올 표와 같은 모양
+// 정상 케이스는 V2 양식(장르별 고정 대사 목록) 그대로 — 실제로 올라올 표와 같은 모양
 const CSV_OK = (() => {
-  const codes = ["H", "R", "C", "F"];
-  const rows = ["층,배합ID,사건,태도,배합이름,순번,대사,최대길이(초),감정태그,파일명"];
-  for (const ev of codes) {
-    for (const at of codes) {
-      const id = `${ev}-${at}`;
-      rows.push(`배합,${id},사건,태도,,1,그 사람은 늘 늦었어요.,5,,vo_${id}_1.mp3`);
-      rows.push(`배합,${id},사건,태도,,cb,...아직 그 {noun|은:는} 안 왔네요.,4,,vo_${id}_cb.mp3`);
-      rows.push(`배합,${id},사건,태도,,cb_fb,...아직 안 오네요.,4,,vo_${id}_cb_fb.mp3`);
+  const rows = ["장르,순번,대사,최대길이(초),감정태그,파일명"];
+  let n = 1;
+  for (const g of ["H", "R", "C"]) {
+    for (let i = 0; i < 3; i++) {
+      const seq = String(n).padStart(2, "0");
+      rows.push(`${g},${seq},예시 대사 ${seq}입니다.,5,,vo_${g}_${seq}.mp3`);
+      n++;
     }
   }
   return rows.join("\n");
 })();
 
 const CSV_BAD = [
-  "층,배합ID,사건,태도,배합이름,순번,대사,최대길이(초),감정태그,파일명",
-  "배합,R-H,로맨스,공포,경계하는 그리움,cb,아직 안 왔네요.,4,,vo_R-H_cb.mp3",
-  "배합,R-H,로맨스,공포,경계하는 그리움,cb_fb,...아직 그 {noun} 안 왔네요.,4,,vo_R-H_cb_fb.mp3",
-  "배합,R-H,로맨스,공포,경계하는 그리움,1,{noun|이} 오기로 했었나요.,5,,vo_R-H_1.mp3",
+  "장르,순번,대사,최대길이(초),감정태그,파일명",
+  "X,01,모르는 장르 코드입니다.,5,,vo_X_01.mp3",
+  "H,01,순번이 겹치는 첫 줄입니다.,5,,vo_H_01.mp3",
+  "H,01,순번이 겹치는 둘째 줄입니다.,5,,vo_H_01.mp3",
+  "R,02,파일명이 규칙과 다릅니다.,4,,vo_wrong_name.mp3",
 ].join("\n");
 
 export default function SelfTest() {
@@ -92,9 +92,9 @@ export default function SelfTest() {
 
       const bad = measureDialogue(CSV_BAD);
       const msgs = bad.issues.map((i) => i.msg).join(" | ");
-      push("대사 표 — 폴백에 {noun}", /폴백에 \{noun\}/.test(msgs), "잡아냄");
-      push("대사 표 — 콜백에 {noun} 없음", /콜백에 \{noun\} 이 없습니다/.test(msgs), "잡아냄");
-      push("대사 표 — 조사 형식 오류", /조사 형식/.test(msgs), "잡아냄");
+      push("대사 표 — 모르는 장르 코드", /모르는 장르 코드/.test(msgs), "잡아냄");
+      push("대사 표 — 순번 중복", /순번이 겹칩니다/.test(msgs), "잡아냄");
+      push("대사 표 — 파일명 불일치", /파일명이.*패턴과 다릅니다/.test(msgs), "잡아냄");
     } catch (e) {
       push("실행", false, e.message);
     }

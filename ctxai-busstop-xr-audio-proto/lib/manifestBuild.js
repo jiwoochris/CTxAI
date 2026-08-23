@@ -58,9 +58,12 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
       ],
       saved: Object.keys(presets ?? {}).sort(),
     },
-    models: { structure: [], sign: {}, npc: { clips: {} }, genreProps: {}, bus: {} },
+    models: { structure: [], sign: {}, npc: { clips: {}, variants: {} }, genreProps: {}, bus: {} },
+    textures: { poster: {} },
     audio: { bgm: {}, voice: { voiceId, model: "eleven_v3", emotionTagsWork, lines: {} }, sfx: {}, busSfx: {} },
-    dialogue: { source: "", combinationCount: 16, voiceOutputDir: "assets/vo/" },
+    // combinationCount(사건4×태도4=16)는 v1.1 배합표 개념 — V2는 장르별 고정 대사
+    // 목록이라 더는 맞지 않는다. 실제 업로드된 줄 수로 대체.
+    dialogue: { source: "", lineCount: null, voiceOutputDir: "assets/vo/" },
   };
 
   for (const slot of SLOTS) {
@@ -76,6 +79,7 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
 
     if (slot.id === "dialogue.csv") {
       m.dialogue.source = r ? `/api/assets/file/${slot.id}` : "";
+      m.dialogue.lineCount = r?.measure?.rows ?? null;
       continue;
     }
     setPath(m, slot.path, entry);
@@ -88,6 +92,16 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
     gazeContact: [0.0, 1.0], benchDistanceM: [0.5, 1.4],
     silenceSec: [0.4, 2.5], voiceGain: [0.75, 1.1],
   };
+  // 공포·블랙코미디 전용 몸체 — 각자 머리 본 이름이 다를 수 있어 따로 뽑는다
+  for (const g of ["H", "C"]) {
+    const variant = chosenVariant(records[`npc.model.${g}`]);
+    m.models.npc.variants[g].headBone = variant?.measure?.headBone ?? "Head";
+  }
+
+  // 가로등 조도 트리거 — 구조물 자체는 자유 슬롯(models.structure[streetlamp])이라
+  // 여기서는 "어느 구조물이, 어느 장르에서 반응하는가"만 선언한다. 실제 깜빡임
+  // 연출은 아직 없음 — /whitebox 조명 시스템 쪽 별도 작업 (Bus/규격/명명규칙.md 참고).
+  m.lighting.streetlamp = { structureId: "streetlamp", flickerOnGenre: "H" };
 
   const sign = chosenVariant(records["sign.model"]);
   m.models.sign.nameplateMaterial = sign?.measure?.nameplateMaterial ?? "mat_nameplate";
@@ -129,29 +143,32 @@ export function buildStatus(records, presets) {
     };
   });
 
-  // 배경 트랙 4종은 서로 비교해야 알 수 있는 것이 있습니다
+  // 배경 트랙(장르 수만큼)은 서로 비교해야 알 수 있는 것이 있습니다.
+  // ⚠️ 판타지 드롭으로 3트랙이 됐습니다 (2026-08-22) — 아래는 GENRES.length 기준으로
+  // 셉니다. 하드코딩된 4로 비교하면 항상 미달로 떨어져서 이 검사 자체가 죽습니다.
   const cross = [];
   const bgm = GENRES.map((g) => chosenVariant(records[`bgm.${g}`])?.measure).filter(Boolean);
   const lufs = bgm.map((b) => b?.lufsIntegrated).filter((v) => typeof v === "number");
-  if (lufs.length === 4) {
+  const trackLabel = `${GENRES.length}트랙`;
+  if (lufs.length === GENRES.length) {
     const spread = Math.max(...lufs) - Math.min(...lufs);
     cross.push({
       id: "bgm-lufs",
       ok: spread <= LIMITS.bgmLufsSpreadMax,
-      label: "네 트랙 음량 맞춤",
+      label: `${trackLabel} 음량 맞춤`,
       detail: `편차 ${spread.toFixed(1)} dB (허용 ${LIMITS.bgmLufsSpreadMax})`,
     });
   } else if (lufs.length) {
-    cross.push({ id: "bgm-lufs", ok: null, label: "네 트랙 음량 맞춤", detail: `${4 - lufs.length}종 대기 중` });
+    cross.push({ id: "bgm-lufs", ok: null, label: `${trackLabel} 음량 맞춤`, detail: `${GENRES.length - lufs.length}종 대기 중` });
   }
 
   const peaks = bgm.map((b) => b?.truePeakDb).filter((v) => typeof v === "number");
-  if (peaks.length === 4) {
-    const worst = Math.max(...peaks) + LIMITS.fourTrackSumDb;
+  if (peaks.length === GENRES.length) {
+    const worst = Math.max(...peaks) + LIMITS.bgmSumDb;
     cross.push({
       id: "bgm-sum",
       ok: worst <= 0,
-      label: "네 트랙 동시 재생 (T3)",
+      label: `${trackLabel} 동시 재생 (T3)`,
       detail: `합산 최악값 ${worst.toFixed(1)} dBFS` + (worst > 0 ? " — 리미터로 받습니다" : ""),
     });
   }

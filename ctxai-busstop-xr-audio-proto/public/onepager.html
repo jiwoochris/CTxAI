@@ -1,206 +1,369 @@
 <title>정류장 중간 발표</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@700;800;900&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
   :root {
-    --bg: #f3f4f8;
-    --card: #ffffff;
-    --accent: #c4183c;
-    --accent-soft: #fbe8ec;
-    --text: #1b1d29;
-    --text-muted: #8a8d99;
-    --border: #e6e7ee;
-    --font: "Noto Sans KR", "Apple SD Gothic Neo", -apple-system, sans-serif;
+    --bg: #10141b;
+    --panel: #171d26;
+    --panel-2: #1b222d;
+    --line: #2a3340;
+    --line-soft: #232b36;
+    --ink: #e9edf3;
+    --muted: #8b95a5;
+    --muted-dim: #626b7a;
+
+    --horror: #4fd1c5;
+    --romance: #f2789a;
+    --comedy: #d7e05a;
+    --signal: #7fb8ff;
+    --warn: #e8a33d;
+
+    --font-display: "Gothic A1", "Apple SD Gothic Neo", sans-serif;
+    --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    --font-mono: "IBM Plex Mono", "Noto Sans Mono", monospace;
   }
 
   * { box-sizing: border-box; }
 
   body {
     background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
+    color: var(--ink);
+    font-family: var(--font-body);
     margin: 0;
-    padding: 40px 32px 28px;
+    padding: 36px 20px 48px;
     -webkit-font-smoothing: antialiased;
   }
 
   .page {
-    max-width: 1180px;
+    max-width: 800px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 22px;
   }
 
-  /* ── 상단 메타 바 ── */
-  .meta {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-left: 5px solid var(--accent);
-    border-radius: 10px;
-    padding: 20px 28px;
-    display: grid;
-    grid-template-columns: 1fr 1px 1fr 1px 1fr;
-    align-items: center;
-    gap: 24px;
-  }
-  .meta-divider { width: 1px; height: 34px; background: var(--border); justify-self: center; }
-  .meta-field { display: flex; flex-direction: column; gap: 8px; }
-  .meta-label {
-    font-size: 13px; font-weight: 700; color: var(--accent);
-    letter-spacing: 0.02em;
-  }
-  .meta-value {
-    font-size: 15px; color: var(--text); min-height: 1.4em;
-    border-bottom: 1px solid var(--border); padding-bottom: 8px;
-  }
-  .meta-value.empty { color: var(--text-muted); }
-
-  /* ── 3열 카드 ── */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-    align-items: stretch;
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 26px 26px 22px;
+  /* ── 마스트헤드 (노선 표지판) ─────────────────────── */
+  .masthead {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .masthead::before {
+    content: "";
+    position: absolute; inset: 0 auto 0 0;
+    width: 5px;
+    background: linear-gradient(180deg, var(--horror), var(--romance) 50%, var(--comedy));
+  }
+  .badge {
+    flex: none;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--bg);
+    background: var(--signal);
+    border-radius: 4px;
+    padding: 7px 11px;
+  }
+  .mastheadText { flex: 1; min-width: 0; }
+  .mastheadText h1 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin: 0 0 3px;
+    text-wrap: balance;
+  }
+  .mastheadText p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .mastheadMeta {
+    flex: none;
+    text-align: right;
+    padding-left: 16px;
+    border-left: 1px solid var(--line);
+  }
+  .metaLabel {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted-dim);
+    margin-bottom: 4px;
+  }
+  .metaValue {
+    font-size: 13px;
+    color: var(--muted);
   }
 
-  .card-head { display: flex; align-items: baseline; gap: 10px; }
-  .card-num {
-    font-size: 22px; font-weight: 800; color: var(--accent);
+  /* ── 게이지 (예시 판정 값) ───────────────────────── */
+  .gauge {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 22px 18px;
+  }
+  .gaugeLabel {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 12px;
+  }
+  .gaugeBar {
+    display: flex;
+    height: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    color: #0d1015;
     font-variant-numeric: tabular-nums;
   }
-  .card-title { font-size: 17px; font-weight: 700; text-wrap: balance; }
-
-  .field { display: flex; flex-direction: column; gap: 8px; }
-  .field-label {
-    font-size: 12.5px; font-weight: 600; color: var(--text-muted);
-    letter-spacing: 0.01em;
+  .seg-horror { background: var(--horror); }
+  .seg-comedy { background: var(--comedy); }
+  .gaugeTicks {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted-dim);
+    margin-top: 5px;
   }
-  .field-body {
-    font-size: 13.5px; line-height: 1.62; color: var(--text);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 14px;
+  .gaugeFoot {
+    margin: 14px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted);
+    max-width: 64ch;
   }
-  .field:last-child .field-body { border-bottom: none; padding-bottom: 0; }
 
-  /* ── 도전 포인트 ── */
-  .challenge {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-left: 5px solid var(--accent);
-    border-radius: 10px;
-    padding: 20px 28px;
+  /* ── 정차 기록 (섹션 01/02/03) ───────────────────── */
+  .stop {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 4px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 22px 22px;
+  }
+  .stopNum {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 26px;
+    color: var(--muted-dim);
+    line-height: 1;
+    padding-top: 2px;
+  }
+  .stopBody h2 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    grid-column: 2;
+  }
+  .fields { display: flex; flex-direction: column; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .fieldLabel {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted-dim);
+  }
+  .field p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.68;
+    color: var(--ink);
+    max-width: 66ch;
+  }
+  .field.warn .fieldLabel { color: var(--warn); }
+  .field.warn p { color: #d8c2a0; }
+
+  /* ── 도전 포인트 / 향후 과제 ─────────────────────── */
+  .caution {
+    background: var(--panel);
+    border: 1px solid rgba(232, 163, 61, 0.35);
+    border-radius: 6px;
+    padding: 20px 22px 22px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 16px;
   }
-  .challenge-head { font-size: 14.5px; font-weight: 700; color: var(--accent); }
-  .challenge-head span { color: var(--text-muted); font-weight: 500; }
-  .challenge-body { font-size: 13.5px; line-height: 1.6; color: var(--text); max-width: 98ch; margin: 0; }
-  .challenge-body b { color: var(--accent); font-weight: 700; }
-
-  /* ── 푸터 ── */
-  .foot {
-    text-align: right;
-    font-size: 11.5px;
-    color: var(--text-muted);
+  .cautionRow { display: flex; flex-direction: column; gap: 7px; }
+  .cautionTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 11px;
     letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--warn);
+  }
+  .cautionRow p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.68;
+    color: var(--ink);
+    max-width: 74ch;
+  }
+  .cautionRow p b { color: var(--warn); font-weight: 600; }
+
+  /* ── 푸터 ────────────────────────────────────────── */
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    color: var(--muted-dim);
     padding: 2px 4px 0;
   }
+  .foot .dots { display: flex; align-items: center; white-space: nowrap; }
+  .foot .dotsLabel { margin-right: 8px; }
+  .foot .dots .dot-horror,
+  .foot .dots .dot-romance,
+  .foot .dots .dot-comedy {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none;
+    margin-left: 5px;
+  }
+  .dot-horror { background: var(--horror); }
+  .dot-romance { background: var(--romance); }
+  .dot-comedy { background: var(--comedy); }
 
-  @media (max-width: 860px) {
-    .cards { grid-template-columns: 1fr; }
-    .meta { grid-template-columns: 1fr; }
-    .meta-divider { display: none; }
+  @media (max-width: 620px) {
+    .masthead { flex-wrap: wrap; }
+    .mastheadMeta { border-left: none; padding-left: 0; text-align: left; }
+    .stop { grid-template-columns: 1fr; }
+    .stopNum { font-size: 15px; padding-top: 0; }
+    .stopBody h2 { grid-column: 1; }
   }
 </style>
 
 <div class="page">
-  <div class="meta">
-    <div class="meta-field">
-      <span class="meta-label">팀</span>
-      <span class="meta-value">7조</span>
+  <div class="masthead">
+    <span class="badge">7조</span>
+    <div class="mastheadText">
+      <h1>버스 정류장</h1>
+      <p>관객 반응 기반 실시간 서사 블렌딩 — KAIST CTxAI 캡스톤</p>
     </div>
-    <div class="meta-divider"></div>
-    <div class="meta-field">
-      <span class="meta-label">프로젝트</span>
-      <span class="meta-value">버스 정류장 — 관객 반응 기반 실시간 서사 블렌딩</span>
-    </div>
-    <div class="meta-divider"></div>
-    <div class="meta-field">
-      <span class="meta-label">발표자</span>
-      <span class="meta-value empty">&nbsp;</span>
+    <div class="mastheadMeta">
+      <span class="metaLabel">발표자</span>
+      <span class="metaValue">&nbsp;</span>
     </div>
   </div>
 
-  <div class="cards">
-    <div class="card">
-      <div class="card-head"><span class="card-num">01</span><span class="card-title">지금까지 한 것</span></div>
-      <div class="field">
-        <span class="field-label">구현한 것</span>
-        <p class="field-body">행동(웹캠)·텍스트(STT+LLM)·음성(오디오 톤) 3채널 판정 시스템. 완성된 실제 자산(그림 3종·대사 46줄 TTS·BGM 3트랙)까지 연동한 데모.</p>
-      </div>
-      <div class="field">
-        <span class="field-label">지금 동작하는 것</span>
-        <p class="field-body">벤치에 앉으면 자동으로 관찰·판정 → 배합 비율(예: 공포 60%+코미디 40%)이 실시간으로 나오고, BGM도 그 비율대로 실제로 섞여 재생됨. 확신도가 낮으면 재질문도 함.</p>
-      </div>
-      <div class="field">
-        <span class="field-label">막힌 지점</span>
-        <p class="field-body">행동 인식 정확도가 실측 데이터 없이 검증 안 됨. 정면 카메라의 구조적 사각지대, 실제 전시 공간이 어두워 웹캠 자체가 안 될 수 있음(IR 카메라 필요).</p>
-      </div>
+  <section class="gauge">
+    <div class="gaugeLabel">예시 판정 값 · 실시간 배합 비율</div>
+    <div class="gaugeBar">
+      <div class="seg seg-horror" style="width:60%"><span>공포 60%</span></div>
+      <div class="seg seg-comedy" style="width:40%"><span>코미디 40%</span></div>
     </div>
+    <div class="gaugeTicks"><span>0%</span><span>50%</span><span>100%</span></div>
+    <p class="gaugeFoot">벤치에 앉으면 자동으로 관찰·판정 → 이 비율대로 조명·배경음악이 실시간으로 섞여 재생됩니다. 확신도가 낮으면 재질문도 합니다.</p>
+  </section>
 
-    <div class="card">
-      <div class="card-head"><span class="card-num">02</span><span class="card-title">구현 중인 세부기술</span></div>
-      <div class="field">
-        <span class="field-label">쓰고 있는 기술</span>
-        <p class="field-body">MediaPipe FaceLandmarker(표정 인식 포함), Whisper STT + Claude Haiku 의미 분석, 오디오 이해 모델(Gemini)의 음성 톤 분석, 3채널 가중합 기반 연속 파라미터 블렌딩.</p>
-      </div>
-      <div class="field">
-        <span class="field-label">이번에 붙일 범위</span>
-        <p class="field-body">원 제안서 핵심 주장인 "연속 파라미터 블렌딩"을 웹캠·음성 인식과 결합 — 장르 하나를 고르는 대신 배합 비율 자체를 실시간으로 유지·반영.</p>
-      </div>
-      <div class="field">
-        <span class="field-label">가장 어려운 부분</span>
-        <p class="field-body">표준 감정 인식 모델로 직접 안 잡히는 축(로맨스) 처리, 데이터셋 없이 여러 채널 가중치의 신뢰성 확보, 이산적인 자산을 연속 배합처럼 보이게 만드는 것.</p>
+  <section class="stop">
+    <div class="stopNum">01</div>
+    <div class="stopBody">
+      <h2>지금까지 한 것</h2>
+      <div class="fields">
+        <div class="field">
+          <span class="fieldLabel">구현한 것</span>
+          <p>행동(웹캠)·텍스트(STT+LLM)·음성(오디오 톤) 3채널 판정 시스템. 완성된 실제 자산(그림 3종·대사 46줄 TTS·BGM 3트랙)까지 연동한 데모.</p>
+        </div>
+        <div class="field">
+          <span class="fieldLabel">지금 동작하는 것</span>
+          <p>벤치에 앉으면 자동으로 관찰·판정 → 배합 비율(예: 공포 60%+코미디 40%)이 실시간으로 나오고, BGM도 그 비율대로 실제로 섞여 재생됨. 확신도가 낮으면 재질문도 함.</p>
+        </div>
+        <div class="field warn">
+          <span class="fieldLabel">막힌 지점</span>
+          <p>행동 인식 정확도가 실측 데이터 없이 검증 안 됨. 정면 카메라의 구조적 사각지대, 실제 전시 공간이 어두워 웹캠 자체가 안 될 수 있음(IR 카메라 필요).</p>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div class="card">
-      <div class="card-head"><span class="card-num">03</span><span class="card-title">최종 결과물 예시</span></div>
-      <div class="field">
-        <span class="field-label">11/7에 보여줄 장면</span>
-        <p class="field-body">관객이 아무것도 선택하지 않아도, 5가지 환경 사건(포스터·인물·트럭·개구리·고양이)에 대한 반응만으로 조명·음악·캐릭터·대사가 그 사람만의 배합으로 완성되는 장면.</p>
-      </div>
-      <div class="field">
-        <span class="field-label">관객이 하는 것</span>
-        <p class="field-body">그냥 앉아서 기다리기만 하면 됨 — 짧은 음성 질문에 답해도 되고 안 해도 됨. 선택이 아니라 관찰당하는 경험.</p>
-      </div>
-      <div class="field">
-        <span class="field-label">남은 4회 계획</span>
-        <p class="field-body">① 실제 파일럿 테스트로 판정 임계값 보정 ② 고정 대사를 LLM 실시간 생성으로 전환 ③ IR 카메라 등 하드웨어 통합 ④ 전체 통합 리허설.</p>
+  <section class="stop">
+    <div class="stopNum">02</div>
+    <div class="stopBody">
+      <h2>구현 중인 세부기술</h2>
+      <div class="fields">
+        <div class="field">
+          <span class="fieldLabel">쓰고 있는 기술</span>
+          <p>MediaPipe FaceLandmarker(표정 인식 포함), Whisper STT + Claude Haiku 의미 분석, 오디오 이해 모델(Gemini)의 음성 톤 분석, 3채널 가중합 기반 연속 파라미터 블렌딩.</p>
+        </div>
+        <div class="field">
+          <span class="fieldLabel">이번에 붙일 범위</span>
+          <p>원 제안서 핵심 주장인 "연속 파라미터 블렌딩"을 웹캠·음성 인식과 결합 — 장르 하나를 고르는 대신 배합 비율 자체를 실시간으로 유지·반영.</p>
+        </div>
+        <div class="field warn">
+          <span class="fieldLabel">가장 어려운 부분</span>
+          <p>표준 감정 인식 모델로 직접 안 잡히는 축(로맨스) 처리, 데이터셋 없이 여러 채널 가중치의 신뢰성 확보, 이산적인 자산을 연속 배합처럼 보이게 만드는 것.</p>
+        </div>
       </div>
     </div>
+  </section>
+
+  <section class="stop">
+    <div class="stopNum">03</div>
+    <div class="stopBody">
+      <h2>최종 결과물 예시</h2>
+      <div class="fields">
+        <div class="field">
+          <span class="fieldLabel">11/7에 보여줄 장면</span>
+          <p>관객이 아무것도 선택하지 않아도, 5가지 환경 사건(포스터·인물·트럭·개구리·고양이)에 대한 반응만으로 조명·음악·캐릭터·대사가 그 사람만의 배합으로 완성되는 장면.</p>
+        </div>
+        <div class="field">
+          <span class="fieldLabel">관객이 하는 것</span>
+          <p>그냥 앉아서 기다리기만 하면 됨 — 짧은 음성 질문에 답해도 되고 안 해도 됨. 선택이 아니라 관찰당하는 경험.</p>
+        </div>
+        <div class="field">
+          <span class="fieldLabel">남은 4회 계획</span>
+          <p>① 실제 파일럿 테스트로 판정 임계값 보정 ② 고정 대사를 LLM 실시간 생성으로 전환 ③ IR 카메라 등 하드웨어 통합 ④ 전체 통합 리허설.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="caution">
+    <div class="cautionRow">
+      <span class="cautionTag">⚠ 도전 포인트 · 이 기술의 어떤 점이 어려운가</span>
+      <p>"로맨스"처럼 어떤 얼굴 인식 모델로도 직접 측정되지 않는 감정을 다뤄야 한다는 것, 그리고 검증 데이터셋 없이 <b>행동·텍스트·음성 세 채널</b>의 신뢰도를 실측 없이 잡아야 한다는 것 — 실제로 입 가림·침묵·웃음 등에서 오작동을 겪었고, 구현 후 계속 테스트하면서 오차를 줄이고 있습니다.</p>
+    </div>
+    <div class="cautionRow">
+      <span class="cautionTag">향후 과제 · 어떻게 확장할 것인가</span>
+      <p>이 배합 파라미터를 조명·음악을 넘어 이미지·음성 생성까지 자동으로 잇는 <b>온톨로지로 확장</b>할 계획입니다 — 감정 축마다 색온도·안개 밀도·BGM 템포·TTS 감정 태그 같은 구체적 속성을 표로 정의하고, 이미 있는 "점수 → 배경음 볼륨" 매핑(lib/moodMix.js)을 다른 출력에도 일반화하는 방식으로 구현합니다. 이 표는 코드가 아니라 기획·아트·사운드가 함께 내려야 하는 창작 결정입니다.</p>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>KAIST CTxAI 캡스톤-04 중간 발표 · 원페이지</span>
+    <span class="dots"><span class="dotsLabel">공포·로맨스·블랙코미디</span><span class="dot-horror"></span><span class="dot-romance"></span><span class="dot-comedy"></span></span>
   </div>
-
-  <div class="challenge">
-    <div class="challenge-head">도전 포인트 <span>· 이 기술의 어떤 점이 어려운가</span></div>
-    <p class="challenge-body">"로맨스"처럼 어떤 얼굴 인식 모델로도 직접 측정되지 않는 감정을 다뤄야 한다는 것, 그리고 검증 데이터셋 없이 행동·텍스트·음성 세 채널의 신뢰도를 실측 없이 잡아야 한다는 것 — 실제로 입 가림·침묵·웃음 등에서 오작동을 겪었고, 구현 후 계속 테스트하면서 오차를 줄이고 있습니다.</p>
-    <div class="challenge-head" style="margin-top: 4px;">향후 과제 <span>· 어떻게 확장할 것인가</span></div>
-    <p class="challenge-body">이 배합 파라미터를 조명·음악을 넘어 이미지·음성 생성까지 자동으로 잇는 <b>온톨로지로 확장</b>할 계획입니다 — 감정 축마다 색온도·안개 밀도·BGM 템포·TTS 감정 태그 같은 구체적 속성을 표로 정의하고, 이미 있는 "점수 → 배경음 볼륨" 매핑(lib/moodMix.js)을 다른 출력에도 일반화하는 방식으로 구현합니다. 이 표는 코드가 아니라 기획·아트·사운드가 함께 내려야 하는 창작 결정입니다.</p>
-  </div>
-
-  <div class="foot">KAIST CTxAI 캡스톤-04 중간 발표 · 원페이지</div>
 </div>

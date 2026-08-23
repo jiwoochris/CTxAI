@@ -56,6 +56,7 @@ npm run dev
 **배포**는 아무나 함부로 하지 말고 개발 담당과 상의 후 진행하세요:
 ```bash
 cd ctxai-busstop-xr-audio-proto
+npm run milestones   # 대시보드 "진행 상황"에 최근 커밋을 반영 (git 있는 로컬에서만 동작)
 TOK=$(cat .vercel-token | tr -d '[:space:]')
 npx --yes vercel deploy --prod --token="$TOK" --yes
 ```

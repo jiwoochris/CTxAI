@@ -163,7 +163,7 @@ export async function measureGlb(file, slot) {
   }
 
   // ── 슬롯별 추가 검사
-  if (slot?.id === "npc.model") {
+  if (slot?.id?.startsWith("npc.model")) {
     const head = out.nodeNames.find((n) => /^head$/i.test(n));
     out.headBone = head ?? null;
     if (!head) add("warn", "Head 라는 이름의 본을 못 찾았습니다. 다른 이름이면 알려 주세요 — 시선을 코드가 섞습니다");

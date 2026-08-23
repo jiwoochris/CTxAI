@@ -1,9 +1,15 @@
 // 대사 표 검사 — 순수 함수. 브라우저·서버 양쪽에서 씁니다.
 //
 // 기획이 Sheets 에서 CSV 로 내보내 올리면 그 자리에서 봅니다.
-// 규격: Bus/규격/대사양식_작성법.md
+// 규격: Bus/규격/대사양식_v2.csv (장르·순번·대사·최대길이(초)·감정태그·파일명)
+//
+// v1.1 양식(층·배합ID·사건·태도·16조합·{noun} 콜백)은 V2에서 빠졌습니다 — 연속
+// 블렌딩으로 방향을 바꾸면서 사건과 태도를 배합해 만들던 표가 장르별 고정 대사
+// 목록으로 단순해졌기 때문입니다 (Bus/규격/방향전환_업무재분장.md).
 
-const REQUIRED = ["층", "배합ID", "사건", "태도", "순번", "대사", "최대길이(초)", "파일명"];
+import { GENRES } from "../assetSpec";
+
+const REQUIRED = ["장르", "순번", "대사", "최대길이(초)", "감정태그", "파일명"];
 const CHARS_PER_SEC = 5.5; // 한국어 TTS 대략치 — 넘어도 막지 않고 알려만 줍니다
 
 function parseCsv(text) {
@@ -54,66 +60,59 @@ export function measureDialogue(text) {
   out.rows = data.length;
   out.filled = data.filter((r) => get(r, "대사")).length;
   out.empty = out.rows - out.filled;
+  out.emotionTagged = data.filter((r) => get(r, "감정태그")).length;
 
-  // 배합 16벌
-  const ids = new Set(data.filter((r) => get(r, "층") === "배합").map((r) => get(r, "배합ID")));
-  out.combinations = ids.size;
-  if (ids.size && ids.size !== 16) {
-    add("error", `배합이 ${ids.size}개입니다 — 사건 4 × 태도 4 = 16 이어야 합니다`);
-  }
-
-  // 층별 채움 현황
-  out.byLayer = {};
+  // 장르별 채움 현황 + 잘못된 장르 코드
+  out.byGenre = {};
+  const badGenre = new Set();
+  const seenSeq = {}; // genre -> Set(순번)
+  const dupeSeq = [];
   for (const r of data) {
-    const layer = get(r, "층") || "(빈칸)";
-    const b = (out.byLayer[layer] ??= { total: 0, filled: 0 });
+    const genre = get(r, "장르") || "(빈칸)";
+    const b = (out.byGenre[genre] ??= { total: 0, filled: 0 });
     b.total++;
     if (get(r, "대사")) b.filled++;
+    if (genre !== "(빈칸)" && !GENRES.includes(genre)) badGenre.add(genre);
+
+    const seq = get(r, "순번");
+    if (seq) {
+      const set = (seenSeq[genre] ??= new Set());
+      if (set.has(seq)) dupeSeq.push(`${genre}/${seq}`);
+      set.add(seq);
+    }
+  }
+  if (badGenre.size) {
+    add("error", `모르는 장르 코드입니다: ${[...badGenre].join(", ")} — ${GENRES.join("/")} 중 하나여야 합니다`);
+  }
+  if (dupeSeq.length) {
+    add("error", `같은 장르에 순번이 겹칩니다: ${dupeSeq.slice(0, 5).join(", ")}${dupeSeq.length > 5 ? " …" : ""}`);
   }
 
   // 줄 단위 검사 — 채워진 행만
-  const longRows = [], fbWithNoun = [], cbWithoutNoun = [], badParticle = [];
+  const longRows = [], badFilename = [];
   for (const r of data) {
     const line = get(r, "대사");
     if (!line) continue;
-    const id = get(r, "배합ID");
+    const genre = get(r, "장르");
     const seq = get(r, "순번");
     const max = Number(get(r, "최대길이(초)")) || 0;
+    const filename = get(r, "파일명");
 
     if (max && line.length > max * CHARS_PER_SEC) {
-      longRows.push(`${id}/${seq} (${line.length}자, ${max}초)`);
+      longRows.push(`${genre}/${seq} (${line.length}자, ${max}초)`);
     }
-    if (seq === "cb_fb" && line.includes("{noun}")) fbWithNoun.push(`${id}/${seq}`);
-    if (seq === "cb" && !line.includes("{noun}")) cbWithoutNoun.push(`${id}/${seq}`);
 
-    // {noun|이:가} 형식 검사
-    for (const m of line.matchAll(/\{noun(\|[^}]*)?\}/g)) {
-      const suffix = m[1];
-      if (suffix && !/^\|[^:|]+:[^:|]+$/.test(suffix)) {
-        badParticle.push(`${id}/${seq}: ${m[0]}`);
-      }
+    const expected = `vo_${genre}_${seq}.mp3`;
+    if (filename && genre && seq && filename !== expected) {
+      badFilename.push(`${genre}/${seq}: "${filename}" (기대: "${expected}")`);
     }
   }
 
   if (longRows.length) {
     add("warn", `길이를 넘는 줄 ${longRows.length}개 — 합성 뒤 실제 길이로 다시 봅니다: ${longRows.slice(0, 5).join(", ")}${longRows.length > 5 ? " …" : ""}`);
   }
-  if (fbWithNoun.length) {
-    add("error", `폴백에 {noun} 이 들어 있습니다 (${fbWithNoun.join(", ")}). 폴백은 명사 없이 완결돼야 합니다`);
-  }
-  if (cbWithoutNoun.length) {
-    add("warn", `콜백에 {noun} 이 없습니다 (${cbWithoutNoun.slice(0, 5).join(", ")}). 관객 단어가 안 들어갑니다`);
-  }
-  if (badParticle.length) {
-    add("error", `조사 형식이 틀렸습니다 (${badParticle.slice(0, 3).join(", ")}). {noun|이:가} 처럼 「받침있음:받침없음」 두 개여야 합니다`);
-  }
-
-  // 사건 대사는 태도 중립이어야 하므로 태도 칸이 비었거나 (중립)
-  const eventWithAttitude = data.filter(
-    (r) => get(r, "층") === "사건" && get(r, "태도") && get(r, "태도") !== "(중립)"
-  );
-  if (eventWithAttitude.length) {
-    add("warn", `사건 층에 태도가 적힌 행이 ${eventWithAttitude.length}개 있습니다 — 사건 대사는 태도 중립이어야 합니다`);
+  if (badFilename.length) {
+    add("warn", `파일명이 "vo_{장르}_{순번}.mp3" 패턴과 다릅니다 (${badFilename.slice(0, 5).join(", ")}${badFilename.length > 5 ? " …" : ""}) — scripts/synthesize-dialogue.mjs가 이 칸을 그대로 믿고 합성하니 확인해 주세요`);
   }
 
   return out;

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "milestones": "node scripts/gen-milestones.mjs",
     "synthesize-dialogue": "node scripts/synthesize-dialogue.mjs"
   },
   "dependencies": {
