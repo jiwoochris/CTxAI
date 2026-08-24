@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-08-24",
+    "text": "Add 360° panorama background as a lightweight alternative to full 3D modeling"
+  },
+  {
+    "date": "2026-08-24",
+    "text": "Refresh dashboard milestones before deploy"
+  },
+  {
+    "date": "2026-08-24",
     "text": "Add V2 asset slots, head-pose pilot logger, and V2 dialogue CSV checker"
   },
   {
@@ -22,13 +30,5 @@
   {
     "date": "2026-08-22",
     "text": "Add multimodal genre-judgment prototype and continuous-blending v2"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Add dialogue audio and SFX candidate listening pages, update handoff doc"
-  },
-  {
-    "date": "2026-08-20",
-    "text": "Add ElevenLabs batch dialogue synthesis script"
   }
 ]
