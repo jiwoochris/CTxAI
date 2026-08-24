@@ -58,7 +58,7 @@ export function buildManifest(records, presets, { voiceId = "", emotionTagsWork 
       ],
       saved: Object.keys(presets ?? {}).sort(),
     },
-    models: { structure: [], sign: {}, npc: { clips: {}, variants: {} }, genreProps: {}, bus: {} },
+    models: { structure: [], sign: {}, npc: { clips: {}, variants: {} }, genreProps: {}, bus: {}, background: {} },
     textures: { poster: {} },
     audio: { bgm: {}, voice: { voiceId, model: "eleven_v3", emotionTagsWork, lines: {} }, sfx: {}, busSfx: {} },
     // combinationCount(사건4×태도4=16)는 v1.1 배합표 개념 — V2는 장르별 고정 대사

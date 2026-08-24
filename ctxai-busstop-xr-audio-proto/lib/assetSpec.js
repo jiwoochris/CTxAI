@@ -24,6 +24,14 @@ const genreName = { H: "horror", R: "romance", C: "comedy" };
 // kind: model | audio | dialogue
 // aug : 8월 시연에 필요한가 (현황판의 「남은 일」 계산 기준)
 export const SLOTS = [
+  // ── 아트 · 배경 (V2 신규) ──────────────────────────────
+  // 도로·카페·숲 전체를 GLB로 모델링하는 대신, 360도 파노라마 그림 한 장을
+  // 구 안쪽에 입혀 배경을 만듭니다 — 움직이는 소품(트럭·고양이 등)만 실제 GLB.
+  // 렌더링: components/Panorama.jsx. 검사: lib/measure/texture.js (2:1 비율).
+  { id: "bg.panorama", path: "models.background.panorama", kind: "texture",
+    file: "bg_panorama.jpg", label: "배경 파노라마 (360도)", role: "아트", due: "9월", aug: false,
+    hint: "정방형도법(equirectangular) 가로:세로 = 2:1. 도로·카페·숲·정류장 주변 전경 한 장" },
+
   // ── 아트 · 3D ──────────────────────────────────────────
   { id: "structure.shelter", path: "models.structure[shelter]", kind: "model",
     file: "prop_shelter.glb", label: "정류장 구조물", role: "아트", due: "8/12", aug: true },
@@ -154,6 +162,11 @@ export function guessSlot(filename) {
 
   if (/\.csv$/i.test(lower)) return { slot: SLOT_BY_ID["dialogue.csv"], confidence: "loose" };
 
+  // panorama / pano / bg_360 같은 변형
+  if (/panorama|equirect|_360|pano/.test(base) && /\.(png|jpe?g)$/i.test(lower)) {
+    return { slot: SLOT_BY_ID["bg.panorama"], confidence: "loose" };
+  }
+
   return { slot: null, confidence: "none" };
 }
 
@@ -172,7 +185,9 @@ export function extOf(filename) {
 
 // ── 규격 상수 ──────────────────────────────────────────
 export const LIMITS = {
-  textureMax: 2048,          // 한 장 최대 2048×2048
+  textureMax: 2048,          // 한 장 최대 2048×2048 (포스터 등 일반 텍스처)
+  panoramaWidthMax: 8192,    // 파노라마는 훨씬 넓게 허용 — 구 전체에 펼쳐지므로
+  panoramaAspectTolerance: 0.08, // 정방형도법 2:1 비율 허용 오차 (±8%)
   bgmLoopSec: 30,            // 배경 트랙 루프 길이
   bgmLufsTarget: -20,        // 권장 integrated LUFS
   bgmLufsSpreadMax: 1.0,     // 네 트랙 사이 허용 편차 (dB)

@@ -75,7 +75,7 @@ export default function TeamPage() {
     if (slot.kind === "audio") return measureAudio(file);
     if (slot.kind === "model") return measureGlb(file, slot);
     if (slot.kind === "dialogue") return measureDialogue(await file.text());
-    if (slot.kind === "texture") return measureTexture(file);
+    if (slot.kind === "texture") return measureTexture(file, slot);
     return null;
   }
 

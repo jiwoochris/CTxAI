@@ -15,6 +15,7 @@ import { OrbitControls, useGLTF } from "@react-three/drei";
 import { XR, createXRStore } from "@react-three/xr";
 import { Euler, MathUtils } from "three";
 import { SLOT_BY_ID, PRESETS } from "../../lib/assetSpec";
+import Panorama from "../../components/Panorama";
 import s from "./whitebox.module.css";
 
 const xrStore = createXRStore();
@@ -156,8 +157,10 @@ function HeadPoseTelemetry({ thresholdDeg, resetSignal, onSample }) {
 
 function Stage({ statuses, lighting }) {
   const scene = lighting.scene ?? {};
+  const hasPanorama = statuses["bg.panorama"]?.status && statuses["bg.panorama"].status !== "missing";
   return (
     <>
+      <Panorama hasAsset={hasPanorama} />
       <ExposureSync value={scene.exposure} />
       <ambientLight color={toHex(scene.ambient)} intensity={1} />
       {scene.fogType === "exp2" && (
@@ -371,6 +374,7 @@ export default function WhiteboxPage() {
         const map = {};
         for (const item of m.models?.structure ?? []) map[`structure.${item.id}`] = item;
         if (m.models?.sign?.model) map["sign.model"] = m.models.sign.model;
+        if (m.models?.background?.panorama) map["bg.panorama"] = m.models.background.panorama;
         setStatuses(map);
       })
       .catch(() => setStatuses({}))
@@ -477,7 +481,7 @@ export default function WhiteboxPage() {
       <section className={s.legend}>
         <h2>표시된 자리 {loaded ? "" : "— 불러오는 중…"}</h2>
         <ul className={s.list}>
-          {LAYOUT.map(({ slotId }) => {
+          {["bg.panorama", ...LAYOUT.map((l) => l.slotId)].map((slotId) => {
             const slot = SLOT_BY_ID[slotId];
             const status = statuses[slotId]?.status ?? "missing";
             return (
@@ -491,7 +495,8 @@ export default function WhiteboxPage() {
         <p className={s.note}>
           위치는 임시 배치입니다 — 실제 정류장 레이아웃이 정해지면{" "}
           <code>app/whitebox/page.jsx</code>의 <code>LAYOUT</code>만 바꾸면 됩니다.
-          회색/갈색 상자는 아직 없거나 못 불러온 자리입니다.
+          회색/갈색 상자는 아직 없거나 못 불러온 자리입니다. 배경 파노라마가 없으면
+          어두운 단색 구(球)로 대신 감쌉니다 — 조명 확인은 그대로 됩니다.
         </p>
       </section>
     </main>
