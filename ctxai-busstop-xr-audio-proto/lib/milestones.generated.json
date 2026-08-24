@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-08-24",
+    "text": "Stabilize whitebox Canvas camera/target references"
+  },
+  {
+    "date": "2026-08-24",
+    "text": "Refresh dashboard milestones before deploy"
+  },
+  {
+    "date": "2026-08-24",
     "text": "Make the missing-panorama placeholder actually visible"
   },
   {
@@ -22,13 +30,5 @@
   {
     "date": "2026-08-23",
     "text": "Add team onboarding guide"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Fix AND-semantics bug in behavior judgment: averaging let calm sustained attention read as fear"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Hide file-upload dashboard behind /upload, make root land on the to-do list"
   }
 ]
