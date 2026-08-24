@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-08-24",
+    "text": "Make the missing-panorama placeholder actually visible"
+  },
+  {
+    "date": "2026-08-24",
+    "text": "Refresh dashboard milestones before deploy"
+  },
+  {
+    "date": "2026-08-24",
     "text": "Add 360° panorama background as a lightweight alternative to full 3D modeling"
   },
   {
@@ -22,13 +30,5 @@
   {
     "date": "2026-08-22",
     "text": "Hide file-upload dashboard behind /upload, make root land on the to-do list"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Replace crammed footer links with a top v1/v2 navigation bar"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Add multimodal genre-judgment prototype and continuous-blending v2"
   }
 ]
