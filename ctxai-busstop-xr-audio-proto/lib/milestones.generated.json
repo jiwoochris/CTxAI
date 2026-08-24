@@ -1,5 +1,13 @@
 [
   {
+    "date": "2026-08-25",
+    "text": "Show the real story art in /story-vr instead of GLB wireframe placeholders"
+  },
+  {
+    "date": "2026-08-25",
+    "text": "Add /story-vr — web VR version of the judgment/reveal experience"
+  },
+  {
     "date": "2026-08-24",
     "text": "Stabilize whitebox Canvas camera/target references"
   },
@@ -22,13 +30,5 @@
   {
     "date": "2026-08-22",
     "text": "Fix AND-semantics bug in behavior judgment: averaging let calm sustained attention read as fear"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Hide file-upload dashboard behind /upload, make root land on the to-do list"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Replace crammed footer links with a top v1/v2 navigation bar"
   }
 ]
