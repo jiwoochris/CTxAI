@@ -28,11 +28,15 @@ if (!existsSync(path.join(REPO_ROOT, ".git"))) {
   bail(`git 저장소를 못 찾음 (${REPO_ROOT})`);
 }
 
+// 이 스크립트 자신이 배포 직전마다 만드는 반복 커밋 — 진행 상황이 아니라 잡무라
+// 마일스톤에서 뺀다. 넉넉히 더 가져와서(3배) 걸러낸 뒤 MAX_ITEMS로 자른다.
+const NOISE_SUBJECTS = new Set(["Refresh dashboard milestones before deploy"]);
+
 let raw;
 try {
   raw = execFileSync(
     "git",
-    ["log", `-n`, String(MAX_ITEMS), "--pretty=format:%ad|%s", "--date=short",
+    ["log", `-n`, String(MAX_ITEMS * 3), "--pretty=format:%ad|%s", "--date=short",
       "--", "ctxai-busstop-xr-audio-proto", "Bus/규격"],
     { cwd: REPO_ROOT, encoding: "utf8" },
   );
@@ -46,7 +50,9 @@ const milestones = raw
   .map((line) => {
     const i = line.indexOf("|");
     return { date: line.slice(0, i), text: line.slice(i + 1) };
-  });
+  })
+  .filter((m) => !NOISE_SUBJECTS.has(m.text))
+  .slice(0, MAX_ITEMS);
 
 if (!milestones.length) bail("git log 결과 없음");
 

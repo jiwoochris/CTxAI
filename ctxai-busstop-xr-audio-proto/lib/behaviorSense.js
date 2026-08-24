@@ -292,6 +292,47 @@ export function judgeFromBehavior(metrics) {
   return { scores: { R: R / sum, H: H / sum, C: C / sum }, reason };
 }
 
+// judgeFromBehavior의 헤드셋 버전 — v2.md §5가 원래 "시선 = 헤드셋 헤드 포즈
+// 기준"이라고 정의했던 정식 경로다(웹캠 얼굴 인식은 헤드셋이 없을 때의 대체
+// 수단이었을 뿐). 입력은 app/whitebox의 HeadPoseTelemetry가 onSample로 내보내는
+// 누적치 그대로 — { maxMagDeg, maxAboveSec, recoveryMs, reversals } 네 필드만 쓴다.
+// judgeFromBehavior와 같은 AND(최솟값)/OR(최댓값) 합성 철학을 그대로 물려받는다
+// (평균을 쓰면 "차분히 오래 봄"이 공포로 오판되는 문제가 재발하므로 — 위 H
+// 계산부의 주석 참고). 얼굴 카메라가 없으므로 maxFear/maxAmusement에 대응하는
+// 항은 없다.
+const HEADPOSE_DEFENSIVE_DEG = 35; // 이 정도 편차부터 "화들짝 고개를 돌림"으로 본다
+
+export function judgeFromHeadPose(accum, observeDurationMs = 11000) {
+  if (!accum) {
+    return { scores: { R: 1, H: 0, C: 0 }, reason: "관찰 실패 — 로맨스 디폴트" };
+  }
+
+  // recoveryMs가 null이면 "관찰 시간 안에 회복을 못 봤다"는 뜻이라, 웹캠 쪽
+  // observe()가 같은 상황에 durationMs를 채워 넣는 것과 같은 방식으로 관찰
+  // 시간 전체를 채워 넣는다 — 회복 안 됨은 느린 회복 신호를 최대로 키워야 한다.
+  const recoveryMs = accum.recoveryMs ?? observeDurationMs;
+
+  const defensiveSig = clamp01(accum.maxMagDeg / HEADPOSE_DEFENSIVE_DEG);
+  const sustainedSig = clamp01(accum.maxAboveSec / (SUSTAINED_SEC_TH * 1.5));
+  const slowRecoverySig = clamp01(recoveryMs / SLOW_RECOVERY_MS);
+  const H = Math.min(defensiveSig, sustainedSig, slowRecoverySig);
+
+  const exploreSig = clamp01((accum.reversals || 0) / 3);
+  const fastRecoverySig = clamp01(1 - recoveryMs / FAST_RECOVERY_MS);
+  const C = Math.min(exploreSig, fastRecoverySig);
+
+  const R = clamp01(1 - Math.max(H, C));
+  const sum = R + H + C || 1;
+
+  const reason = H >= C && H > R
+    ? "머리 포즈 — 큰 편차·지속 응시·느린 회복 신호"
+    : C > R
+      ? "머리 포즈 — 잦은 재통과(탐색)·빠른 회복 신호"
+      : "머리 포즈 — 낮은/모호한 반응";
+
+  return { scores: { R: R / sum, H: H / sum, C: C / sum }, reason };
+}
+
 // 행동/텍스트/음성 세 채널의 {R,H,C} 소프트 점수를 가중합한다.
 // 가중치는 Bus/규격/판정_기준.md §3 표와 동일 (행동 50 · 텍스트 30 · 음성 20).
 //

@@ -9,13 +9,13 @@
 // 조명은 이제 PlayCanvas 에디터 북마크릿(예전 app/tool, public/preset-tool.js — 제거함) 대신
 // 여기서 직접 조절·저장합니다. 저장 형식은 그대로 규격/preset/preset.schema.json.
 
-import { Component, Suspense, useEffect, useRef, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { useEffect, useRef, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
 import { XR, createXRStore } from "@react-three/xr";
-import { Euler, MathUtils } from "three";
 import { SLOT_BY_ID, PRESETS } from "../../lib/assetSpec";
-import Panorama from "../../components/Panorama";
+import AudienceStage, { LAYOUT } from "../../components/AudienceStage";
+import HeadPoseTelemetry from "../../components/HeadPoseTelemetry";
 import s from "./whitebox.module.css";
 
 const xrStore = createXRStore();
@@ -27,15 +27,6 @@ const xrStore = createXRStore();
 // 재구성이라 없애 둔다.
 const CANVAS_CAMERA = { position: [2, 1.6, 2.6], fov: 55 };
 const ORBIT_TARGET = [0, 1, 0];
-
-// 씬 원점 = 벤치 착석 지점 바닥 (0,0,0) — 명명규칙.md §3.
-// 나머지 위치는 아직 정해지지 않아 QA용 임시 배치입니다.
-const LAYOUT = [
-  { slotId: "structure.bench", position: [0, 0, 0], rotation: [0, 0, 0] },
-  { slotId: "structure.shelter", position: [0, 0, -0.7], rotation: [0, 0, 0] },
-  { slotId: "structure.silhouette", position: [0.65, 0, 0.05], rotation: [0, -0.3, 0] },
-  { slotId: "sign.model", position: [1.4, 0, -0.5], rotation: [0, -0.5, 0] },
-];
 
 // ── 조명 기본값 — lp_neutral 출발점. 다른 네 장은 이걸 불러와서 고치는 걸 권장합니다. ──
 const DEFAULT_LIGHTS = [
@@ -58,136 +49,12 @@ const fromHex = (hex) => {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
 
-class ModelErrorBoundary extends Component {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? this.props.fallback : this.props.children;
-  }
-}
-
-function Model({ slotId }) {
-  const { scene } = useGLTF(`/api/assets/file/${slotId}`);
-  return <primitive object={scene} />;
-}
-
-function Placeholder({ tone = "missing" }) {
-  return (
-    <mesh position={[0, 0.75, 0]}>
-      <boxGeometry args={[0.5, 1.5, 0.5]} />
-      <meshStandardMaterial
-        color={tone === "loading" ? "#565d68" : "#8a6a3a"}
-        wireframe
-      />
-    </mesh>
-  );
-}
-
-function SlotModel({ slotId, hasAsset }) {
-  if (!hasAsset) return <Placeholder tone="missing" />;
-  return (
-    <ModelErrorBoundary fallback={<Placeholder tone="missing" />}>
-      <Suspense fallback={<Placeholder tone="loading" />}>
-        <Model slotId={slotId} />
-      </Suspense>
-    </ModelErrorBoundary>
-  );
-}
-
-// Canvas 밖의 React state(exposure)를 three.js 렌더러에 반영 — gl은 useThree로만 얻을 수 있다.
-function ExposureSync({ value }) {
-  const { gl } = useThree();
-  useEffect(() => {
-    gl.toneMappingExposure = value ?? 1;
-  }, [gl, value]);
-  return null;
-}
-
-// 머리 포즈 로깅 — 행동 판정 파일럿 테스트용 (Bus/규격/판정_기준.md, 할 일 "행동 판정
-// 파일럿 테스트 준비"). v2.md §2의 임계값(2초 지속반응, 5~8초 자세 기준선 등)은 아직
-// 규칙만 있고 실측이 없다. 여기서는 임계값을 코딩하지 않고, 실제 사람이 5개 단서에
-// 반응할 때 각도가 어떻게 움직이는지 숫자로만 관찰한다 — 헤드셋(카메라 quaternion)
-// 경로 전용. 웹캠 경로의 대응물은 lib/behaviorSense.js.
-function HeadPoseTelemetry({ thresholdDeg, resetSignal, onSample }) {
-  const { camera } = useThree();
-  const baseline = useRef(null);
-  const acc = useRef({ maxMagDeg: 0, aboveSec: 0, maxAboveSec: 0, reversals: 0, wasAbove: false, recoveryMs: null, aboveExitAt: null });
-  const lastEmit = useRef(0);
-
-  useEffect(() => {
-    const e = new Euler().setFromQuaternion(camera.quaternion, "YXZ");
-    baseline.current = { yaw: MathUtils.radToDeg(e.y), pitch: MathUtils.radToDeg(e.x) };
-    acc.current = { maxMagDeg: 0, aboveSec: 0, maxAboveSec: 0, reversals: 0, wasAbove: false, recoveryMs: null, aboveExitAt: null };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetSignal]);
-
-  useFrame((_, delta) => {
-    if (!baseline.current) return;
-    const e = new Euler().setFromQuaternion(camera.quaternion, "YXZ");
-    const yaw = MathUtils.radToDeg(e.y);
-    const pitch = MathUtils.radToDeg(e.x);
-    const dYaw = yaw - baseline.current.yaw;
-    const dPitch = pitch - baseline.current.pitch;
-    const mag = Math.sqrt(dYaw * dYaw + dPitch * dPitch);
-    const a = acc.current;
-    a.maxMagDeg = Math.max(a.maxMagDeg, mag);
-    const above = mag > thresholdDeg;
-    if (above) {
-      a.aboveSec += delta;
-      a.maxAboveSec = Math.max(a.maxAboveSec, a.aboveSec);
-      if (!a.wasAbove) { a.reversals += 1; a.recoveryMs = null; a.aboveExitAt = null; }
-      a.wasAbove = true;
-    } else {
-      if (a.wasAbove) a.aboveExitAt = Date.now();
-      a.wasAbove = false;
-      a.aboveSec = 0;
-      if (a.aboveExitAt != null && mag < thresholdDeg * 0.3) {
-        a.recoveryMs = Date.now() - a.aboveExitAt;
-        a.aboveExitAt = null;
-      }
-    }
-
-    const now = performance.now();
-    if (now - lastEmit.current > 120) {
-      lastEmit.current = now;
-      onSample({
-        t: Date.now(), yaw, pitch, dYaw, dPitch, mag, above,
-        maxMagDeg: a.maxMagDeg, aboveSec: a.aboveSec, maxAboveSec: a.maxAboveSec,
-        reversals: a.reversals, recoveryMs: a.recoveryMs,
-      });
-    }
-  });
-
-  return null;
-}
-
+// AudienceStage(파노라마·조명·GLB 소품)에 개발자 전용 디버그 요소(격자·바닥·
+// 원점 표식)만 얹는다 — 관객용 렌더링 코드는 components/AudienceStage.jsx 하나뿐.
 function Stage({ statuses, lighting }) {
-  const scene = lighting.scene ?? {};
-  const hasPanorama = statuses["bg.panorama"]?.status && statuses["bg.panorama"].status !== "missing";
   return (
     <>
-      <Panorama hasAsset={hasPanorama} />
-      <ExposureSync value={scene.exposure} />
-      <ambientLight color={toHex(scene.ambient)} intensity={1} />
-      {scene.fogType === "exp2" && (
-        <fogExp2 attach="fog" args={[toHex(scene.fogColor), scene.fogDensity ?? 0.05]} />
-      )}
-
-      {(lighting.lights ?? []).map((L) =>
-        L.enabled === false ? null : L.type === "point" ? (
-          <pointLight key={L.name} position={L.position ?? [0, 2, 0]} color={toHex(L.color)} intensity={L.intensity ?? 1} />
-        ) : (
-          <directionalLight
-            key={L.name}
-            position={L.position ?? [3, 4, 2]}
-            color={toHex(L.color)}
-            intensity={L.intensity ?? 1}
-            castShadow={!!L.castShadows}
-          />
-        )
-      )}
+      <AudienceStage statuses={statuses} lighting={lighting} />
 
       <gridHelper args={[8, 16, "#3a3f48", "#26292f"]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -200,12 +67,6 @@ function Stage({ statuses, lighting }) {
         <ringGeometry args={[0.03, 0.05, 24]} />
         <meshBasicMaterial color="#7fd67f" />
       </mesh>
-
-      {LAYOUT.map(({ slotId, position, rotation }) => (
-        <group key={slotId} position={position} rotation={rotation}>
-          <SlotModel slotId={slotId} hasAsset={statuses[slotId]?.status && statuses[slotId].status !== "missing"} />
-        </group>
-      ))}
     </>
   );
 }

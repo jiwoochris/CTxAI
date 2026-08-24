@@ -121,8 +121,8 @@ export default function TodoPage() {
           </div>
         )}
         <ul className={s.milestones}>
-          {MILESTONES.map((m) => (
-            <li key={m.date + m.text}><span className={s.milestoneDate}>{m.date}</span>{m.text}</li>
+          {MILESTONES.map((m, i) => (
+            <li key={i}><span className={s.milestoneDate}>{m.date}</span>{m.text}</li>
           ))}
         </ul>
       </section>
