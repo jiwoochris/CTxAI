@@ -27,13 +27,14 @@ function PanoramaSphere({ url }) {
   );
 }
 
-// 그림이 아직 없을 때 — 회색 상자와 같은 역할의 "빈 배경". 완전한 무지보다
-// 하늘/바닥이 어렴풋이 구분되는 그라디언트 쪽이 조명 확인에 방해가 덜 됩니다.
+// 그림이 아직 없을 때 — GLB의 "회색/갈색 상자"와 같은 색·같은 와이어프레임
+// 컨벤션을 씁니다. 배경까지 어두운 단색으로 채우면 "안 보인다"와 "아직
+// 없다"를 구분할 수 없어서, 일부러 눈에 띄는 격자 구체로 보여줍니다.
 function PanoramaPlaceholder() {
   return (
     <mesh scale={[-1, 1, 1]}>
-      <sphereGeometry args={[RADIUS, 16, 12]} />
-      <meshBasicMaterial color="#1b1d22" side={BackSide} fog={false} />
+      <sphereGeometry args={[RADIUS, 24, 16]} />
+      <meshBasicMaterial color="#8a6a3a" side={BackSide} wireframe fog={false} />
     </mesh>
   );
 }
