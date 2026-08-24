@@ -2,29 +2,35 @@
 
 // story-vr — 웹 VR 버전 (2026-08-25).
 // /story(v1, 이산 선택) · /story-v2(v2, 연속 블렌딩·웹캠 전용)와 나란히 존재하는
-// 별도 실험 버전이다. 관찰·판정·대사·BGM 로직은 story-v2와 완전히 같고,
-// 렌더링만 3D로 바꿨다 — /whitebox에서 만든 파노라마+조명+GLB 파이프라인
-// (components/AudienceStage.jsx)을 그대로 쓴다.
+// 별도 실험 버전이다. 관찰·판정·대사·BGM 로직은 story-v2와 완전히 같다 — 다른 건
+// 배경이 평면 이미지 태그가 아니라 3D 캔버스 안의 화면이라는 것뿐이다.
 //
-// GATE에서 "VR로 시작" / "웹캠으로 시작" 둘 중 하나를 고른다 — 헤드셋이 있으면
-// 머리 포즈(v2.md §5가 원래 정의한 정식 경로)로, 없으면 기존 웹캠 얼굴 인식으로
-// 관찰한다. 둘 다 같은 fuseChannels()를 거치므로 판정 로직은 하나다.
+// 핵심 요구사항: "헤드셋이 없어도 VR 화면은 보여야 한다." 그래서 관찰 방식으로
+// VR/웹캠을 먼저 고르게 하지 않는다 — 시작하기 한 번이면 누구나 이 3D 화면을
+// 보고, 그 안에서 기존과 같은 웹캠 관찰이 돈다. 실제 헤드셋이 있는 사람은 상단의
+// "Enter VR" 버튼으로 아무 때나 몰입 모드로 들어갈 수 있다(/whitebox와 같은 패턴) —
+// 이건 관찰 방식을 바꾸는 게 아니라 보는 방식만 바꾸는 보너스다.
+//
+// 화면에 쓰는 그림은 지금까지 실제로 나온 아트(public/story/*.jpg)다. GLB 3D
+// 모델은 아직 하나도 없지만(아트 진행 0/8), 이미 완성된 일러스트가 있으니 그걸
+// 3D 평면에 띄운다 — components/ImageBackdrop.jsx. 머리 포즈 기반 판정
+// (lib/behaviorSense.js의 judgeFromHeadPose)은 나중에 헤드셋 전용 관찰 경로를
+// 붙일 때를 위해 만들어 두었지만, 지금 이 화면은 아직 쓰지 않는다.
 //
 // WebXR 몰입 세션 안에서는 일반 HTML(자막바)이 안 보인다 — 캔버스만 렌더링되는
 // 브라우저의 근본 제약이라 우회할 수 없다. 그래서 대사는 오디오로 재생하고,
-// 자막바는 헤드셋 없이 보는 사람(플랫 뷰)을 위한 보너스로만 유지한다.
+// 자막바는 헤드셋 없이 보는 사람을 위한 화면이기도 하다.
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import { PerspectiveCamera } from "@react-three/drei";
 import { XR, createXRStore } from "@react-three/xr";
 import { DIALOGUE_V2_LINES, DIALOGUE_V2_GENRE_LABEL, DIALOGUE_V2_SLOT_ID } from "@/lib/dialogueV2Lines";
-import { observe, judgeFromBehavior, judgeFromHeadPose, fuseChannels, confidenceOf } from "@/lib/behaviorSense";
+import { observe, judgeFromBehavior, fuseChannels, confidenceOf } from "@/lib/behaviorSense";
 import { scoresFromMoodApi } from "@/lib/textKeywords";
 import { analyzeProsody } from "@/lib/voiceProsody";
 import { startBgmBlend, stopBgmBlend } from "@/lib/bgmBlend";
-import { blendPresets } from "@/lib/lightingBlend";
-import AudienceStage from "@/components/AudienceStage";
-import HeadPoseTelemetry from "@/components/HeadPoseTelemetry";
+import ImageBackdrop from "@/components/ImageBackdrop";
 import s from "../story/story.module.css";
 
 const xrStore = createXRStore();
@@ -33,14 +39,14 @@ const xrStore = createXRStore();
 const CANVAS_CAMERA = { position: [0, 1.15, 0.35], fov: 60 };
 
 const GENRE_META = {
-  R: { accent: "#f2a7c0" },
-  H: { accent: "#8fae95" },
-  C: { accent: "#e0a86a" },
+  R: { image: "/story/romance.jpg", accent: "#f2a7c0" },
+  H: { image: "/story/horror.jpg", accent: "#8fae95" },
+  C: { image: "/story/comedy.jpg", accent: "#e0a86a" },
 };
+const DEFAULT_IMAGE = "/story/default.jpg";
 const DEFAULT_ACCENT = "#cfd8e3";
 const OBSERVE_MS = 11000;
 const LOW_CONFIDENCE_TH = 0.35;
-const POSE_THRESHOLD_DEG = 12;
 
 function buildLines(dominant, secondary) {
   const base = DIALOGUE_V2_LINES.filter((l) => l.genre === dominant);
@@ -78,25 +84,10 @@ function recordFor(audioTrack, ms) {
   });
 }
 
-async function fetchPreset(name) {
-  try {
-    const res = await fetch(`/api/preset?name=${name}`);
-    const data = await res.json();
-    return data.ok ? data.preset : null;
-  } catch {
-    return null;
-  }
-}
-
 export default function StoryVrPage() {
   const [phase, setPhase] = useState("gate"); // gate | observe | judge | reveal
-  const [mode, setMode] = useState(null); // vr | webcam
   const [fused, setFused] = useState(null);
   const [xrError, setXrError] = useState("");
-
-  const [statuses, setStatuses] = useState({});
-  const [neutralLighting, setNeutralLighting] = useState(null);
-  const [revealLighting, setRevealLighting] = useState(null);
 
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -111,28 +102,10 @@ export default function StoryVrPage() {
   const repromptRef = useRef(null);
   const announceRef = useRef(null);
   const streamRef = useRef(null);
-  const poseAccumRef = useRef(null);
 
   useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
 
-  // 3D 씬에 필요한 자산 상태(파노라마·구조물 등)와 기본(중립) 조명을 미리 받아 둔다 —
-  // /whitebox의 같은 패턴. 에셋이 아직 없어도 AudienceStage가 와이어프레임으로 대신한다.
-  useEffect(() => {
-    fetch("/api/manifest")
-      .then((r) => r.json())
-      .then((m) => {
-        const map = {};
-        for (const item of m.models?.structure ?? []) map[`structure.${item.id}`] = item;
-        if (m.models?.sign?.model) map["sign.model"] = m.models.sign.model;
-        if (m.models?.background?.panorama) map["bg.panorama"] = m.models.background.panorama;
-        setStatuses(map);
-      })
-      .catch(() => setStatuses({}));
-    fetchPreset("lp_neutral").then(setNeutralLighting);
-  }, []);
-
-  async function startWebcam() {
-    setMode("webcam");
+  async function start() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: true });
       streamRef.current = stream;
@@ -144,25 +117,16 @@ export default function StoryVrPage() {
       // 권한 거부 — 그래도 진행한다. 신호 없이 로맨스 디폴트로 떨어진다.
     }
     setPhase("observe");
-    runObservation("webcam");
+    runObservation();
   }
 
-  async function startVr() {
-    setMode("vr");
+  async function enterVr() {
     setXrError("");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-    } catch (e) {
-      // 마이크 거부 — 음성 채널 없이 진행.
-    }
-    setPhase("observe");
     try {
       await xrStore.enterVR();
     } catch (e) {
-      setXrError("VR 진입에 실패했습니다 — 헤드셋 연결과 브라우저의 WebXR 지원을 확인해 주세요. 화면으로 계속 진행합니다.");
+      setXrError("VR 진입에 실패했습니다 — 헤드셋 연결과 브라우저의 WebXR 지원을 확인해 주세요.");
     }
-    runObservation("vr");
   }
 
   async function scoreVoiceBlob(blob) {
@@ -182,7 +146,7 @@ export default function StoryVrPage() {
     return { textScores: scoresFromMoodApi(moodResult?.scores), voiceScores: prosodyResult?.scores || null };
   }
 
-  // Q1 질문 → 답변 녹음 → 확신도 낮으면 재질문 1회 — story-v2와 동일, 모드 무관.
+  // Q1 질문 → 답변 녹음 → 확신도 낮으면 재질문 1회 — story-v2와 동일.
   async function runVoiceFlow(audioTrack) {
     await playClip(q1Ref.current);
     let out = await scoreVoiceBlob(await recordFor(audioTrack, 5000));
@@ -198,24 +162,18 @@ export default function StoryVrPage() {
     return out;
   }
 
-  async function runObservation(activeMode) {
+  async function runObservation() {
     const audioTrack = streamRef.current?.getAudioTracks?.()[0];
     const voicePromise = audioTrack
       ? runVoiceFlow(audioTrack)
       : Promise.resolve({ textScores: null, voiceScores: null });
 
-    // 행동 채널 — VR이면 머리 포즈, 아니면 기존 웹캠 얼굴 인식. 입력만 다르고
-    // 둘 다 같은 fuseChannels()로 들어간다.
-    const behaviorPromise = activeMode === "vr"
-      ? new Promise((resolve) => {
-          poseAccumRef.current = null;
-          setTimeout(() => resolve(judgeFromHeadPose(poseAccumRef.current, OBSERVE_MS)), OBSERVE_MS);
-        })
-      : videoRef.current
-        ? observe(videoRef.current, OBSERVE_MS, null).then((obs) => judgeFromBehavior(obs.ok ? obs.metrics : null))
-        : Promise.resolve(judgeFromBehavior(null));
+    const behaviorPromise = videoRef.current
+      ? observe(videoRef.current, OBSERVE_MS, null)
+      : Promise.resolve({ ok: false });
 
-    const [behaviorResult, voiceOut] = await Promise.all([behaviorPromise, voicePromise]);
+    const [behaviorObs, voiceOut] = await Promise.all([behaviorPromise, voicePromise]);
+    const behaviorResult = judgeFromBehavior(behaviorObs.ok ? behaviorObs.metrics : null);
     const result = fuseChannels({
       behaviorScores: behaviorResult.scores,
       textScores: voiceOut.textScores,
@@ -227,21 +185,10 @@ export default function StoryVrPage() {
     setTimeout(() => reveal(result), 2600);
   }
 
-  async function reveal(result) {
+  function reveal(result) {
     setFused(result);
     setIndex(0);
     setFinished(false);
-
-    const dom = result.dominant;
-    const sec = result.secondary;
-    const [presetA, presetB] = await Promise.all([
-      fetchPreset(`lp_${dom}`),
-      sec ? fetchPreset(`lp_${sec}`) : Promise.resolve(null),
-    ]);
-    setRevealLighting(
-      sec && presetB ? blendPresets(presetA, presetB, result.scores[dom], result.scores[sec]) : (presetA ?? neutralLighting)
-    );
-
     setPhase("reveal");
     startBgmBlend({ H: bgmRefs.H.current, R: bgmRefs.R.current, C: bgmRefs.C.current }, result.scores);
   }
@@ -250,9 +197,7 @@ export default function StoryVrPage() {
     stopBgmBlend({ H: bgmRefs.H.current, R: bgmRefs.R.current, C: bgmRefs.C.current });
     lineRef.current?.pause();
     setPhase("gate");
-    setMode(null);
     setFused(null);
-    setRevealLighting(null);
     setIndex(0);
     setPlaying(false);
     setFinished(false);
@@ -280,25 +225,25 @@ export default function StoryVrPage() {
   }
 
   const accent = dominant ? GENRE_META[dominant].accent : DEFAULT_ACCENT;
+  const bgImage = dominant ? GENRE_META[dominant].image : DEFAULT_IMAGE;
   const secondaryAccent = secondary ? GENRE_META[secondary].accent : null;
   const lineAccent = line?.flavor && secondaryAccent ? secondaryAccent : accent;
-  const currentLighting = phase === "reveal" ? revealLighting : neutralLighting;
 
   return (
     <div className={s.stage} style={{ "--accent": accent }}>
       <div className={s.bgLayer}>
-        <Canvas camera={CANVAS_CAMERA} shadows>
+        <Canvas>
+          <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <AudienceStage statuses={statuses} lighting={currentLighting} />
-            {phase === "observe" && mode === "vr" && (
-              <HeadPoseTelemetry
-                thresholdDeg={POSE_THRESHOLD_DEG}
-                resetSignal={0}
-                onSample={(sample) => { poseAccumRef.current = sample; }}
-              />
-            )}
+            <ImageBackdrop url={bgImage} />
           </XR>
         </Canvas>
+        {secondaryAccent && (
+          <div
+            className={s.tintOverlay}
+            style={{ background: secondaryAccent, opacity: Math.min(0.35, secondaryWeight * 0.5) }}
+          />
+        )}
         <div className={s.vignette} />
       </div>
 
@@ -315,16 +260,23 @@ export default function StoryVrPage() {
 
       <div className={s.topBar}>
         <a className={s.homeLink} href="/">← 대시보드</a>
-        <span className={s.dim}>VR · 연속 블렌딩 (실험적) · <a href="/story-v2" style={{ color: "inherit" }}>웹캠 버전 보기</a></span>
-        {phase === "reveal" && (
-          <div className={s.genreChip}>
-            <span className={s.genreDot} />
-            {DIALOGUE_V2_GENRE_LABEL[dominant]}
-            {secondary && <span className={s.dim}> + {DIALOGUE_V2_GENRE_LABEL[secondary]} {Math.round(secondaryWeight * 100)}%</span>}
-            <button className={s.resetBtn} onClick={reset}>⟲ 처음으로</button>
-          </div>
-        )}
+        <span className={s.dim}>
+          웹 VR · 연속 블렌딩 (실험적) · <a href="/story-v2" style={{ color: "inherit" }}>웹캠 버전 보기</a>
+        </span>
+        <div className={s.genreChip}>
+          <button className={s.resetBtn} onClick={enterVr}>🥽 Enter VR</button>
+          {phase === "reveal" && (
+            <>
+              <span className={s.genreDot} />
+              {DIALOGUE_V2_GENRE_LABEL[dominant]}
+              {secondary && <span className={s.dim}> + {DIALOGUE_V2_GENRE_LABEL[secondary]} {Math.round(secondaryWeight * 100)}%</span>}
+              <button className={s.resetBtn} onClick={reset}>⟲ 처음으로</button>
+            </>
+          )}
+        </div>
       </div>
+
+      {xrError && phase === "gate" && <p className={s.introSub} style={{ position: "absolute", top: 70, width: "100%", textAlign: "center" }}>{xrError}</p>}
 
       {phase === "gate" && (
         <div className={s.intro}>
@@ -332,20 +284,12 @@ export default function StoryVrPage() {
             <p className={s.introEyebrow}>정류장 · 프로토타입 데모 (웹 VR)</p>
             <h1 className={s.introTitle}>정류장 벤치에 앉아 주세요</h1>
             <p className={s.introSub}>
-              헤드셋이 있으면 VR로, 없으면 웹캠으로 — 어느 쪽이든 잠시 당신을 관찰합니다.
-              장르는 고르는 것이 아니라 정해지는 것입니다.
+              카메라와 마이크로 잠시 당신을 관찰합니다. 장르는 고르는 것이 아니라
+              정해지는 것입니다 — 헤드셋이 있다면 위 "Enter VR"로 언제든 몰입해서 볼 수 있습니다.
             </p>
-            <div className={s.choices}>
-              <button className={s.choiceBtn} onClick={startVr}>
-                <span>🥽 VR로 시작<small>헤드셋 착용 — 머리 움직임으로 관찰합니다</small></span>
-                <span className={s.choiceArrow}>→</span>
-              </button>
-              <button className={s.choiceBtn} onClick={startWebcam}>
-                <span>💻 웹캠으로 시작<small>헤드셋 없이 — 얼굴 표정으로 관찰합니다</small></span>
-                <span className={s.choiceArrow}>→</span>
-              </button>
-            </div>
-            {xrError && <p className={s.introSub}>{xrError}</p>}
+            <button className={s.choiceBtn} onClick={start} style={{ justifyContent: "center" }}>
+              <span>시작하기</span>
+            </button>
           </div>
         </div>
       )}
