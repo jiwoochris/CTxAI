@@ -20,6 +20,14 @@ import s from "./whitebox.module.css";
 
 const xrStore = createXRStore();
 
+// 안정된 참조로 고정 — Canvas의 camera/gl 설정 로직은 매 렌더마다 재적용되는데,
+// 인라인 객체를 주면 매번 새 참조라 gl.shadowMap.type 을 다시 세팅한다(그때마다
+// three.js가 사용법 변경 경고를 콘솔에 남김). 머리 포즈 로깅이 ~120ms마다 부모를
+// 리렌더하므로 이 경고가 초당 여러 번 반복된다 — 기능상 치명적이진 않지만 불필요한
+// 재구성이라 없애 둔다.
+const CANVAS_CAMERA = { position: [2, 1.6, 2.6], fov: 55 };
+const ORBIT_TARGET = [0, 1, 0];
+
 // 씬 원점 = 벤치 착석 지점 바닥 (0,0,0) — 명명규칙.md §3.
 // 나머지 위치는 아직 정해지지 않아 QA용 임시 배치입니다.
 const LAYOUT = [
@@ -447,10 +455,10 @@ export default function WhiteboxPage() {
 
       <div className={s.layout}>
         <div className={s.canvasWrap}>
-          <Canvas shadows camera={{ position: [2, 1.6, 2.6], fov: 55 }}>
+          <Canvas shadows camera={CANVAS_CAMERA}>
             <XR store={xrStore}>
               <Stage statuses={statuses} lighting={lighting} />
-              <OrbitControls target={[0, 1, 0]} />
+              <OrbitControls target={ORBIT_TARGET} />
               <HeadPoseTelemetry thresholdDeg={poseThresholdDeg} resetSignal={poseResetSignal} onSample={handlePoseSample} />
             </XR>
           </Canvas>
