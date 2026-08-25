@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-08-25",
+    "text": "Make /story-vr's 3D scene actually look-aroundable, not just 3D-shaped"
+  },
+  {
+    "date": "2026-08-25",
     "text": "Add a dedicated URL for the /story-vr prototype"
   },
   {
@@ -26,9 +30,5 @@
   {
     "date": "2026-08-24",
     "text": "Add 360° panorama background as a lightweight alternative to full 3D modeling"
-  },
-  {
-    "date": "2026-08-24",
-    "text": "Add V2 asset slots, head-pose pilot logger, and V2 dialogue CSV checker"
   }
 ]
