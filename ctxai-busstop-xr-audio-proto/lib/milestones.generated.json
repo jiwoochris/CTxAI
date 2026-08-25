@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-08-25",
+    "text": "Add a dedicated URL for the /story-vr prototype"
+  },
+  {
+    "date": "2026-08-25",
+    "text": "Replace flat-image /story-vr backdrop with real 3D blockout geometry"
+  },
+  {
+    "date": "2026-08-25",
     "text": "Show the real story art in /story-vr instead of GLB wireframe placeholders"
   },
   {
@@ -22,13 +30,5 @@
   {
     "date": "2026-08-24",
     "text": "Add V2 asset slots, head-pose pilot logger, and V2 dialogue CSV checker"
-  },
-  {
-    "date": "2026-08-23",
-    "text": "Add team onboarding guide"
-  },
-  {
-    "date": "2026-08-22",
-    "text": "Fix AND-semantics bug in behavior judgment: averaging let calm sustained attention read as fear"
   }
 ]
