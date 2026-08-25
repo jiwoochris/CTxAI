@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-08-25",
+    "text": "Lay out the blockout scene's full 360° to match the original script, not guesswork"
+  },
+  {
+    "date": "2026-08-25",
     "text": "Redesign the blockout scene to match the actual reference art"
   },
   {
@@ -26,9 +30,5 @@
   {
     "date": "2026-08-24",
     "text": "Stabilize whitebox Canvas camera/target references"
-  },
-  {
-    "date": "2026-08-24",
-    "text": "Make the missing-panorama placeholder actually visible"
   }
 ]
