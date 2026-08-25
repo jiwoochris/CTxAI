@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-08-25",
+    "text": "Redesign the blockout scene to match the actual reference art"
+  },
+  {
+    "date": "2026-08-25",
     "text": "Make /story-vr's 3D scene actually look-aroundable, not just 3D-shaped"
   },
   {
@@ -26,9 +30,5 @@
   {
     "date": "2026-08-24",
     "text": "Make the missing-panorama placeholder actually visible"
-  },
-  {
-    "date": "2026-08-24",
-    "text": "Add 360° panorama background as a lightweight alternative to full 3D modeling"
   }
 ]
