@@ -11,11 +11,14 @@
 // "Enter VR" 버튼으로 아무 때나 몰입 모드로 들어갈 수 있다(/whitebox와 같은 패턴) —
 // 이건 관찰 방식을 바꾸는 게 아니라 보는 방식만 바꾸는 보너스다.
 //
-// 화면에 쓰는 그림은 지금까지 실제로 나온 아트(public/story/*.jpg)다. GLB 3D
-// 모델은 아직 하나도 없지만(아트 진행 0/8), 이미 완성된 일러스트가 있으니 그걸
-// 3D 평면에 띄운다 — components/ImageBackdrop.jsx. 머리 포즈 기반 판정
-// (lib/behaviorSense.js의 judgeFromHeadPose)은 나중에 헤드셋 전용 관찰 경로를
-// 붙일 때를 위해 만들어 두었지만, 지금 이 화면은 아직 쓰지 않는다.
+// 배경은 평면 그림이 아니라 진짜 3D 지오메트리다 — components/BlockoutStage.jsx.
+// GLB 3D 모델은 아직 하나도 없고(아트 진행 0/8) 유료 이미지→3D API(Meshy 등)는
+// 결제 전이라, 그 사이 단계로 코드로 직접 만든 그레이박스(회색조 도형)를 쓴다.
+// 평면 이미지 한 장과 달리 실제 입체·깊이가 있어서 헤드셋에서 고개를 돌리면
+// 진짜로 다른 면이 보인다. 나중에 실제 3D 에셋이 생기면 AudienceStage.jsx(GLB
+// 파이프라인)로 자리를 바꾸면 된다. 머리 포즈 기반 판정(lib/behaviorSense.js의
+// judgeFromHeadPose)은 나중에 헤드셋 전용 관찰 경로를 붙일 때를 위해 만들어
+// 두었지만, 지금 이 화면은 아직 쓰지 않는다.
 //
 // WebXR 몰입 세션 안에서는 일반 HTML(자막바)이 안 보인다 — 캔버스만 렌더링되는
 // 브라우저의 근본 제약이라 우회할 수 없다. 그래서 대사는 오디오로 재생하고,
@@ -30,7 +33,7 @@ import { observe, judgeFromBehavior, fuseChannels, confidenceOf } from "@/lib/be
 import { scoresFromMoodApi } from "@/lib/textKeywords";
 import { analyzeProsody } from "@/lib/voiceProsody";
 import { startBgmBlend, stopBgmBlend } from "@/lib/bgmBlend";
-import ImageBackdrop from "@/components/ImageBackdrop";
+import BlockoutStage from "@/components/BlockoutStage";
 import s from "../story/story.module.css";
 
 const xrStore = createXRStore();
@@ -39,11 +42,10 @@ const xrStore = createXRStore();
 const CANVAS_CAMERA = { position: [0, 1.15, 0.35], fov: 60 };
 
 const GENRE_META = {
-  R: { image: "/story/romance.jpg", accent: "#f2a7c0" },
-  H: { image: "/story/horror.jpg", accent: "#8fae95" },
-  C: { image: "/story/comedy.jpg", accent: "#e0a86a" },
+  R: { accent: "#f2a7c0" },
+  H: { accent: "#8fae95" },
+  C: { accent: "#e0a86a" },
 };
-const DEFAULT_IMAGE = "/story/default.jpg";
 const DEFAULT_ACCENT = "#cfd8e3";
 const OBSERVE_MS = 11000;
 const LOW_CONFIDENCE_TH = 0.35;
@@ -225,7 +227,6 @@ export default function StoryVrPage() {
   }
 
   const accent = dominant ? GENRE_META[dominant].accent : DEFAULT_ACCENT;
-  const bgImage = dominant ? GENRE_META[dominant].image : DEFAULT_IMAGE;
   const secondaryAccent = secondary ? GENRE_META[secondary].accent : null;
   const lineAccent = line?.flavor && secondaryAccent ? secondaryAccent : accent;
 
@@ -235,7 +236,7 @@ export default function StoryVrPage() {
         <Canvas>
           <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <ImageBackdrop url={bgImage} />
+            <BlockoutStage genre={dominant} />
           </XR>
         </Canvas>
         {secondaryAccent && (
