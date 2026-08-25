@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-08-25",
+    "text": "Wrap the horizon in a full 360° forest ring, not just scripted-event angles"
+  },
+  {
+    "date": "2026-08-25",
     "text": "Lay out the blockout scene's full 360° to match the original script, not guesswork"
   },
   {
@@ -26,9 +30,5 @@
   {
     "date": "2026-08-25",
     "text": "Add /story-vr — web VR version of the judgment/reveal experience"
-  },
-  {
-    "date": "2026-08-24",
-    "text": "Stabilize whitebox Canvas camera/target references"
   }
 ]
