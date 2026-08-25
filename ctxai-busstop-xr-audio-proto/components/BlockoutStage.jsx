@@ -86,6 +86,36 @@ function Reeds({ position, count = 5 }) {
   );
 }
 
+// 360도 배경 숲 — 특정 사건이 지정된 방위(카페 -38°, 포스터 +72° 등)만 채우면
+// 그 사이는 하늘만 보이는 구멍이 생긴다. 먼 반경에 나무를 촘촘히 둘러 수평선
+// 전체를 숲으로 감싸고, 사건별 근거리 요소는 이 배경보다 앞에 놓인다.
+// Math.random() 대신 인덱스 기반 결정적 값을 써서 서버/클라이언트 하이드레이션
+// 불일치가 나지 않게 한다.
+function ForestRing({ radius = 13, count = 22 }) {
+  const trees = Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * Math.PI * 2;
+    const r = radius + ((i * 37) % 7) * 0.5;
+    const height = 6 + ((i * 13) % 5);
+    return {
+      x: Math.sin(angle) * r,
+      z: -Math.cos(angle) * r,
+      height,
+      isPine: i % 4 === 0,
+    };
+  });
+  return (
+    <>
+      {trees.map((t, i) =>
+        t.isPine ? (
+          <RoundPine key={i} position={[t.x, 0, t.z]} scale={1 + (t.height - 6) * 0.1} />
+        ) : (
+          <Cypress key={i} position={[t.x, 0, t.z]} height={t.height} lean={((i % 3) - 1) * 0.02} />
+        )
+      )}
+    </>
+  );
+}
+
 function StreetLamp({ position, on }) {
   return (
     <group position={position}>
@@ -292,6 +322,9 @@ export default function BlockoutStage({ genre }) {
 
       <StreetLamp position={[6.3, 0, -6]} on={genre === "H"} />
       <StreetLamp position={[1.4, 0, -0.3]} on />
+
+      {/* 배경 링 — 위 사건별 배치 사이에 하늘만 보이던 구멍을 없앤다 */}
+      <ForestRing radius={13} count={22} />
     </>
   );
 }
