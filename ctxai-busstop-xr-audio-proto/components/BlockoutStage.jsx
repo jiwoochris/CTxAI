@@ -146,6 +146,17 @@ function Shelter({ mood }) {
         <boxGeometry args={[0.02, 2.1, 1.4]} />
         <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.22} roughness={0.08} metalness={0.1} />
       </mesh>
+      {/* 오른쪽 유리 — v2.md §1-1 "관객 오른쪽 유리에는 비에 젖은 포스터가 붙어 있다".
+          방위각 약 72°(정면 기준 우측 근거리) — 원 기획의 다섯 관찰 단서 중 하나라
+          자리를 비워두면 안 된다. */}
+      <mesh position={[0.95, 1.1, -0.35]}>
+        <boxGeometry args={[0.02, 2.1, 1.4]} />
+        <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.22} roughness={0.08} metalness={0.1} />
+      </mesh>
+      <mesh position={[0.94, 1.25, -0.55]} rotation={[0, -Math.PI / 2, 0.06]}>
+        <planeGeometry args={[0.32, 0.44]} />
+        <meshStandardMaterial color="#e8e2d0" side={2} />
+      </mesh>
     </group>
   );
 }
@@ -171,10 +182,11 @@ function Bench() {
   );
 }
 
-// 도로가 굽는 지점에 있는 작은 카페 — 원화의 사이드뷰 기준 배치.
+// v2.md §1-2 "도로 건너편 왼쪽 약 50미터 거리" — 정면 기준 방위각 약 -38°(좌측
+// 원거리)에 오도록 배치. 블록아웃 스케일에선 50m를 그대로 못 쓰니 비율만 맞춘다.
 function Cafe({ mood }) {
   return (
-    <group position={[-3.4, 0, -13]}>
+    <group position={[-9, 0, -12]}>
       <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.8, 2.1, 2.2]} />
         <meshStandardMaterial color="#2a2622" />
@@ -203,65 +215,71 @@ export default function BlockoutStage({ genre }) {
       <ambientLight color={mood.ambient} intensity={mood.ambientI} />
       <directionalLight position={[3, 6, 2]} color={mood.key} intensity={mood.keyI} castShadow />
 
-      {/* 도로(2차선) + 인도 — 원화 기준 폭을 좁혀 실제 비율에 맞춘다 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.5, 0, -10]} receiveShadow>
-        <planeGeometry args={[5.5, 40]} />
+      {/* 도로(왕복 4차선, v2.md §1 "정면에는 왕복 4차선 도로") + 인도 */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.4, 0, -10]} receiveShadow>
+        <planeGeometry args={[8, 40]} />
         <meshStandardMaterial color={mood.road} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.6, 0.01, -6]} receiveShadow>
         <planeGeometry args={[2.2, 20]} />
         <meshStandardMaterial color="#5c5c58" />
       </mesh>
-      {/* 황색 이중 중앙선 */}
+      {/* 황색 이중 중앙선 — 왕복 방향을 가른다 */}
       {[-0.06, 0.06].map((dx) => (
-        <mesh key={dx} rotation={[-Math.PI / 2, 0, 0]} position={[1.5 + dx, 0.015, -12]}>
+        <mesh key={dx} rotation={[-Math.PI / 2, 0, 0]} position={[2.4 + dx, 0.015, -12]}>
           <planeGeometry args={[0.04, 34]} />
           <meshStandardMaterial color="#e0b840" />
         </mesh>
       ))}
-      {/* 흰색 점선 (인도쪽 차선 경계) */}
-      {Array.from({ length: 10 }, (_, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0.15, 0.015, -1.5 - i * 2.2]}>
-          <planeGeometry args={[0.08, 1.1]} />
-          <meshStandardMaterial color="#d8d8d0" />
-        </mesh>
-      ))}
+      {/* 흰색 점선 2줄 — 각 방향 2차선을 가르는 차선 경계 */}
+      {[0.35, 4.45].map((laneX) =>
+        Array.from({ length: 10 }, (_, i) => (
+          <mesh key={`${laneX}-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[laneX, 0.015, -1.5 - i * 2.2]}>
+            <planeGeometry args={[0.08, 1.1]} />
+            <meshStandardMaterial color="#d8d8d0" />
+          </mesh>
+        ))
+      )}
 
       <Shelter mood={mood} />
       <Bench />
       <Cafe mood={mood} />
 
-      {/* 벤치 뒤쪽 담장 + 산울타리 */}
-      <group position={[0.6, 0, 1.9]}>
-        <mesh position={[0, 0.55, 0]} receiveShadow castShadow>
-          <boxGeometry args={[7, 1.1, 0.25]} />
-          <meshStandardMaterial color="#7a7264" />
-        </mesh>
-        {Array.from({ length: 8 }, (_, i) => (
-          <mesh key={i} position={[-3 + i * 0.9, 1.25, 0]} castShadow>
-            <sphereGeometry args={[0.42, 8, 8]} />
-            <meshStandardMaterial color="#33502f" />
-          </mesh>
-        ))}
-      </group>
+      {/* v2.md §1 "정류장 뒤에는 빗물을 머금은 풀숲이 있고" — 담장이 아니라 젖은
+          풀숲이다. 낮은 경계석 위에 억새 군락을 촘촘히 둬서 벽 대신 수풀로 막는다. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, 0.02, 1.9]} receiveShadow>
+        <planeGeometry args={[7, 1]} />
+        <meshStandardMaterial color="#3a4a36" />
+      </mesh>
+      <Reeds position={[-2.2, 0, 1.85]} count={6} />
+      <Reeds position={[-0.6, 0, 1.9]} count={7} />
+      <Reeds position={[1.0, 0, 1.88]} count={6} />
+      <Reeds position={[2.6, 0, 1.92]} count={7} />
+      {/* 오른쪽 뒤 약 45도(=정면 기준 135°) 방향 — v2.md §1-4 개구리 단서. 소리
+          전용 사건이라 3D 자산은 필요 없지만, 방향을 표시할 만큼 수풀을 더 둔다. */}
+      <Reeds position={[1.9, 0, 1.9]} count={5} />
+      {Array.from({ length: 4 }, (_, i) => (
+        <RoundPine key={`bg${i}`} position={[-3 + i * 2, 0, 3.4 + (i % 2) * 0.5]} scale={0.9 + i * 0.08} />
+      ))}
 
-      {/* 도로 건너편 — 억새 앞줄 + 삼나무열(지붕보다 훨씬 큼) + 둥근 전나무 섞기 */}
-      <Reeds position={[3.1, 0, -1.8]} count={5} />
-      <Reeds position={[3.4, 0, -3.2]} count={6} />
-      <Reeds position={[3.0, 0, -4.6]} count={5} />
+      {/* 도로 건너편(4차선 폭 밖, x>6.4) — v2.md §1 "정면 오른쪽에는 침엽수림과
+          호수공원 산책로" — 억새 앞줄 + 삼나무열(지붕보다 훨씬 큼) + 둥근 전나무 */}
+      <Reeds position={[6.6, 0, -1.8]} count={5} />
+      <Reeds position={[6.9, 0, -3.2]} count={6} />
+      <Reeds position={[6.5, 0, -4.6]} count={5} />
 
       {[
-        [3.7, -2.2, 6.5, -0.04],
-        [4.1, -4.4, 7.5, 0.03],
-        [3.6, -6.6, 6.0, -0.02],
-        [4.3, -9.2, 8.5, 0.05],
-        [3.8, -12.0, 7.0, -0.03],
-        [4.6, -15.5, 9.0, 0.02],
+        [7.2, -2.2, 6.5, -0.04],
+        [7.6, -4.4, 7.5, 0.03],
+        [7.1, -6.6, 6.0, -0.02],
+        [7.8, -9.2, 8.5, 0.05],
+        [7.3, -12.0, 7.0, -0.03],
+        [8.1, -15.5, 9.0, 0.02],
       ].map(([x, z, h, lean], i) => (
         <Cypress key={i} position={[x, 0, z]} height={h} lean={lean} />
       ))}
-      <RoundPine position={[3.3, 0, -5.6]} scale={1.1} />
-      <RoundPine position={[4.0, 0, -10.4]} scale={1.3} />
+      <RoundPine position={[6.8, 0, -5.6]} scale={1.1} />
+      <RoundPine position={[7.5, 0, -10.4]} scale={1.3} />
 
       {/* 왼쪽(관객 쪽) 나무열 — 담장 너머 */}
       {[-1.6, -2.0, -1.4].map((x, i) => (
@@ -272,7 +290,7 @@ export default function BlockoutStage({ genre }) {
         <RoundPine key={`b${i}`} position={[x, 0, 2.6 + (i % 2) * 0.6]} scale={1.0 + i * 0.08} />
       ))}
 
-      <StreetLamp position={[2.8, 0, -6]} on={genre === "H"} />
+      <StreetLamp position={[6.3, 0, -6]} on={genre === "H"} />
       <StreetLamp position={[1.4, 0, -0.3]} on />
     </>
   );
