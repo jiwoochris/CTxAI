@@ -26,7 +26,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { PerspectiveCamera } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { XR, createXRStore } from "@react-three/xr";
 import { DIALOGUE_V2_LINES, DIALOGUE_V2_GENRE_LABEL, DIALOGUE_V2_SLOT_ID } from "@/lib/dialogueV2Lines";
 import { observe, judgeFromBehavior, fuseChannels, confidenceOf } from "@/lib/behaviorSense";
@@ -238,7 +238,22 @@ export default function StoryVrPage() {
           <XR store={xrStore}>
             <BlockoutStage genre={dominant} />
           </XR>
+          {/* 헤드셋 없이 보는 사람도 실제로 둘러볼 수 있게 — 이제는 진짜 지오메트리가
+              사방에 있어서(도로·담장·유리벽·카페) 드래그해도 가짜가 아니라 실제로
+              다른 게 보인다. 헤드셋 세션 중엔 머리 트래킹이 대신하므로 줌/이동 없이
+              회전만 허용한다. */}
+          <OrbitControls
+            target={[0, 1.15, -4]}
+            enableZoom={false}
+            enablePan={false}
+            enableDamping
+            dampingFactor={0.08}
+            rotateSpeed={0.5}
+          />
         </Canvas>
+        <p className={s.dim} style={{ position: "absolute", bottom: 10, left: 0, right: 0, textAlign: "center", pointerEvents: "none", zIndex: 3 }}>
+          ↔ 드래그해서 둘러보기
+        </p>
         {secondaryAccent && (
           <div
             className={s.tintOverlay}

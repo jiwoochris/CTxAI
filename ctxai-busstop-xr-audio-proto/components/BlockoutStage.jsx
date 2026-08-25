@@ -111,6 +111,24 @@ function Bench() {
   );
 }
 
+// 벤치 뒤쪽 담장 + 산울타리 — 뒤돌아봤을 때 허공이 아니라 실제 벽이 보이게.
+function BackWall() {
+  return (
+    <group position={[0.6, 0, 1.9]}>
+      <mesh position={[0, 0.55, 0]} receiveShadow castShadow>
+        <boxGeometry args={[7, 1.1, 0.25]} />
+        <meshStandardMaterial color="#6b665c" />
+      </mesh>
+      {Array.from({ length: 8 }, (_, i) => (
+        <mesh key={i} position={[-3 + i * 0.9, 1.25, 0]} castShadow>
+          <sphereGeometry args={[0.42, 8, 8]} />
+          <meshStandardMaterial color="#33502f" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Cafe({ mood }) {
   return (
     <group position={[5.5, 0, -14]}>
@@ -161,12 +179,17 @@ export default function BlockoutStage({ genre }) {
       <Shelter />
       <Bench />
       <Cafe mood={mood} />
+      <BackWall />
 
       {[-1.3, -1.35, -1.4].map((x, i) => (
         <Tree key={i} position={[x - 0.3, 0, -1.4 - i * 2.6]} scale={0.9 + i * 0.15} />
       ))}
       {[3.2, 3.6, 4.1, 4.6].map((x, i) => (
         <Tree key={`r${i}`} position={[x, 0, -3 - i * 3.4]} scale={0.8 + i * 0.1} />
+      ))}
+      {/* 담장 너머 나무 — 뒤돌아봤을 때도 깊이가 있게 */}
+      {[-2.5, -0.5, 1.5, 3.5].map((x, i) => (
+        <Tree key={`b${i}`} position={[x, 0, 2.6 + (i % 2) * 0.6]} scale={1.0 + i * 0.08} />
       ))}
 
       <StreetLamp position={[3.6, 0, -6]} on={genre === "H"} />

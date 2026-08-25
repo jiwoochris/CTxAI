@@ -97,9 +97,14 @@
   justify-content: center;
   z-index: 4;
   padding: 24px;
+  /* story-vr: 이 래퍼는 카드 바깥 빈 공간을 덮기만 한다 — 배경이 3D 캔버스일 때
+     드래그로 둘러보려면 카드 바깥은 마우스 이벤트를 그냥 통과시켜야 한다.
+     story/story-v2는 배경이 정적 이미지라 아무 영향 없다. */
+  pointer-events: none;
 }
 
 .introCard {
+  pointer-events: auto;
   width: min(560px, 92vw);
   background: rgba(10, 10, 12, 0.55);
   backdrop-filter: blur(6px);
@@ -299,6 +304,8 @@
   justify-content: center;
   gap: 14px;
   z-index: 4;
+  /* .intro와 같은 이유로 통과시킨다 — story-vr에서 관찰/판정 중에도 둘러볼 수 있게. */
+  pointer-events: none;
 }
 
 .observeDot {
