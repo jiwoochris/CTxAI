@@ -1,38 +1,87 @@
 "use client";
 
 // 정류장 그레이박스(blockout) — GLB 업로드나 유료 이미지→3D API 없이, 코드로 직접
-// 만든 실제 3D 지오메트리다. 평면 그림 한 장(ImageBackdrop)과 달리 진짜 입체·깊이가
-// 있어서 헤드셋에서 고개를 돌리면 실제로 다른 면이 보인다 — "이미지를 그냥 박은
-// 것"이 아니라 진짜 3D 구현. 화풍은 지금 일러스트만큼 안 예쁘지만(회색조 도형
-// 수준), 비용 0원으로 지금 바로 되는 방법이다.
+// 만든 실제 3D 지오메트리다. 형태·비율·색은 Bus/ArtWork_Final의 실제 원화(전체뷰·
+// 메인뷰·사이드뷰)를 보고 맞췄다: 어두운 금속 프레임 + 따뜻한 목재 지붕 + 지붕 밑
+// 얇은 주황 네온 띠, 지붕보다 훨씬 큰 가늘고 뾰족한 삼나무열 + 앞쪽 억새 군락,
+// 황색 이중 중앙선이 있는 2차선 도로, 도로가 굽어지는 지점의 작은 카페.
+//
+// 평면 그림 한 장(ImageBackdrop, 삭제됨)과 달리 진짜 입체·깊이가 있어서 헤드셋에서
+// 고개를 돌리면 실제로 다른 면이 보인다. 화풍은 원화만큼 정교하진 않지만(회색조
+// 도형 수준), 비용 0원으로 지금 바로 되는 방법이다.
 //
 // 나중에 실제 3D 에셋(Meshy 등 유료 API, 또는 사람이 만든 GLB)이 생기면
-// components/AudienceStage.jsx(GLB 파이프라인)로 자리를 바꾸면 된다 — 같은
-// lib/assetSpec.js 슬롯 구조를 그대로 쓸 수 있게 배치는 명명규칙.md §3 원점
-// (벤치 착석 지점 바닥 = 0,0,0)을 그대로 따른다.
+// components/AudienceStage.jsx(GLB 파이프라인)로 자리를 바꾸면 된다 — 배치는
+// 명명규칙.md §3 원점(벤치 착석 지점 바닥 = 0,0,0)을 그대로 따른다.
 
 const MOODS = {
-  neutral: { sky: "#7c8592", fog: "#7c8592", fogDensity: 0.032, ambient: "#c9ccd4", ambientI: 0.7, key: "#fff2df", keyI: 1.1, road: "#4a4d52" },
-  H: { sky: "#232b27", fog: "#202a26", fogDensity: 0.075, ambient: "#33403a", ambientI: 0.55, key: "#6f9884", keyI: 0.4, road: "#20221f" },
-  R: { sky: "#f0b384", fog: "#e6a374", fogDensity: 0.028, ambient: "#f4c99a", ambientI: 0.85, key: "#ffcf8f", keyI: 1.3, road: "#4a4038" },
-  C: { sky: "#ffe28a", fog: "#ffe9a8", fogDensity: 0.018, ambient: "#fff2c2", ambientI: 1.0, key: "#fff0b0", keyI: 1.5, road: "#57534a" },
+  neutral: { sky: "#8f96a3", fog: "#8f96a3", fogDensity: 0.03, ambient: "#c9ccd4", ambientI: 0.75, key: "#e9edf2", keyI: 1.0, road: "#3f4247", neon: "#ff9a3d" },
+  H: { sky: "#232b27", fog: "#202a26", fogDensity: 0.075, ambient: "#33403a", ambientI: 0.55, key: "#6f9884", keyI: 0.4, road: "#1c1e1b", neon: "#5fae8a" },
+  R: { sky: "#f0b384", fog: "#e6a374", fogDensity: 0.026, ambient: "#f4c99a", ambientI: 0.85, key: "#ffcf8f", keyI: 1.3, road: "#463c34", neon: "#ff9a3d" },
+  C: { sky: "#ffe28a", fog: "#ffe9a8", fogDensity: 0.018, ambient: "#fff2c2", ambientI: 1.0, key: "#fff0b0", keyI: 1.5, road: "#57534a", neon: "#ffcf5c" },
 };
 
-function Tree({ position, scale = 1 }) {
+// 아주 가늘고 뾰족한 삼나무(cypress) — 원화의 시그니처 요소. 지붕(~2.4m)보다
+// 훨씬 크게(5~9m), 반지름은 극단적으로 얇게 잡는다.
+function Cypress({ position, height = 6, lean = 0 }) {
+  const segs = 5;
+  return (
+    <group position={position} rotation={[0, 0, lean]}>
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <cylinderGeometry args={[0.05, 0.07, 0.7, 6]} />
+        <meshStandardMaterial color="#3a2e22" />
+      </mesh>
+      {Array.from({ length: segs }, (_, i) => {
+        const t = i / segs;
+        const y = 0.7 + (height - 0.7) * ((i + 0.9) / segs);
+        const r = 0.34 * (1 - t * 0.82);
+        const h = (height - 0.7) / segs + 0.15;
+        return (
+          <mesh key={i} position={[0, y, 0]} castShadow>
+            <coneGeometry args={[Math.max(r, 0.03), h, 7]} />
+            <meshStandardMaterial color={i % 2 === 0 ? "#233d2a" : "#2c4a33"} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// 둥근 전나무 — 삼나무 사이에 섞어 실루엣을 다양하게 한다.
+function RoundPine({ position, scale = 1 }) {
   return (
     <group position={position} scale={scale}>
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.12, 1.2, 6]} />
+      <mesh position={[0, 0.5, 0]} castShadow>
+        <cylinderGeometry args={[0.09, 0.13, 1, 6]} />
         <meshStandardMaterial color="#4a3a2a" />
       </mesh>
-      <mesh position={[0, 1.7, 0]} castShadow>
-        <coneGeometry args={[0.6, 2.2, 8]} />
+      <mesh position={[0, 1.5, 0]} castShadow>
+        <coneGeometry args={[0.75, 2.0, 8]} />
         <meshStandardMaterial color="#2f4a34" />
       </mesh>
-      <mesh position={[0, 2.7, 0]} castShadow>
-        <coneGeometry args={[0.42, 1.6, 8]} />
+      <mesh position={[0, 2.5, 0]} castShadow>
+        <coneGeometry args={[0.5, 1.6, 8]} />
         <meshStandardMaterial color="#38583e" />
       </mesh>
+    </group>
+  );
+}
+
+// 억새/갈대 군락 — 도로 건너 앞줄, 나무보다 낮고 관객과 가깝다.
+function Reeds({ position, count = 5 }) {
+  return (
+    <group position={position}>
+      {Array.from({ length: count }, (_, i) => {
+        const dx = (i - count / 2) * 0.12 + (i % 2 ? 0.05 : -0.03);
+        const h = 0.9 + (i % 3) * 0.25;
+        const lean = ((i % 2 ? 1 : -1) * (0.08 + (i % 3) * 0.03));
+        return (
+          <mesh key={i} position={[dx, h / 2, 0]} rotation={[0, 0, lean]}>
+            <cylinderGeometry args={[0.008, 0.02, h, 4]} />
+            <meshStandardMaterial color="#c2b073" />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -57,34 +106,45 @@ function StreetLamp({ position, on }) {
   );
 }
 
-function Shelter() {
+// 정류장 지붕 — 원화의 핵심 디테일: 어두운 금속 프레임, 따뜻한 목재 지붕,
+// 지붕 밑면을 따라 흐르는 얇은 주황 네온 띠 두 줄.
+function Shelter({ mood }) {
   const postXs = [-0.95, 0.95];
   const postZs = [0.35, -1.05];
   return (
     <group>
-      {/* 지붕 */}
       <mesh position={[0, 2.35, -0.35]} rotation={[0.04, 0, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.1, 0.08, 1.6]} />
-        <meshStandardMaterial color="#5a3a2a" />
+        <meshStandardMaterial color="#4a3222" />
       </mesh>
-      {/* 기둥 4개 */}
+      {/* 네온 띠 2줄 — 지붕 밑면에 붙여 은은하게 빛나게 */}
+      {[-0.55, 0.35].map((z) => (
+        <mesh key={z} position={[0, 2.31, z]}>
+          <boxGeometry args={[1.95, 0.015, 0.03]} />
+          <meshStandardMaterial color={mood.neon} emissive={mood.neon} emissiveIntensity={1.6} />
+        </mesh>
+      ))}
       {postXs.map((x) =>
         postZs.map((z) => (
-          <mesh key={`${x}-${z}`} position={[x, 1.15, z]} castShadow>
-            <cylinderGeometry args={[0.045, 0.045, 2.3, 8]} />
-            <meshStandardMaterial color="#3a2a1e" />
-          </mesh>
+          <group key={`${x}-${z}`}>
+            <mesh position={[x, 0.35, z]} castShadow>
+              <cylinderGeometry args={[0.05, 0.05, 0.7, 8]} />
+              <meshStandardMaterial color="#8a5a2e" />
+            </mesh>
+            <mesh position={[x, 1.5, z]} castShadow>
+              <cylinderGeometry args={[0.045, 0.045, 1.6, 8]} />
+              <meshStandardMaterial color="#22242a" />
+            </mesh>
+          </group>
         ))
       )}
-      {/* 뒤쪽 유리벽 */}
       <mesh position={[0, 1.1, -1.05]}>
         <boxGeometry args={[1.9, 2.1, 0.02]} />
-        <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.25} roughness={0.1} metalness={0.1} />
+        <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.22} roughness={0.08} metalness={0.1} />
       </mesh>
-      {/* 왼쪽(도로 반대편) 유리벽 */}
       <mesh position={[-0.95, 1.1, -0.35]}>
         <boxGeometry args={[0.02, 2.1, 1.4]} />
-        <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.25} roughness={0.1} metalness={0.1} />
+        <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.22} roughness={0.08} metalness={0.1} />
       </mesh>
     </group>
   );
@@ -95,55 +155,39 @@ function Bench() {
     <group position={[0, 0, 0.05]}>
       <mesh position={[0, 0.42, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.7, 0.06, 0.42]} />
-        <meshStandardMaterial color="#6b4a30" />
+        <meshStandardMaterial color="#6b3a28" />
       </mesh>
       <mesh position={[0, 0.68, -0.19]} rotation={[-0.12, 0, 0]} castShadow>
         <boxGeometry args={[1.7, 0.5, 0.05]} />
-        <meshStandardMaterial color="#6b4a30" />
+        <meshStandardMaterial color="#6b3a28" />
       </mesh>
       {[-0.75, 0.75].map((x) => (
         <mesh key={x} position={[x, 0.2, 0]}>
           <boxGeometry args={[0.06, 0.4, 0.38]} />
-          <meshStandardMaterial color="#2a2320" />
+          <meshStandardMaterial color="#1e1a17" />
         </mesh>
       ))}
     </group>
   );
 }
 
-// 벤치 뒤쪽 담장 + 산울타리 — 뒤돌아봤을 때 허공이 아니라 실제 벽이 보이게.
-function BackWall() {
-  return (
-    <group position={[0.6, 0, 1.9]}>
-      <mesh position={[0, 0.55, 0]} receiveShadow castShadow>
-        <boxGeometry args={[7, 1.1, 0.25]} />
-        <meshStandardMaterial color="#6b665c" />
-      </mesh>
-      {Array.from({ length: 8 }, (_, i) => (
-        <mesh key={i} position={[-3 + i * 0.9, 1.25, 0]} castShadow>
-          <sphereGeometry args={[0.42, 8, 8]} />
-          <meshStandardMaterial color="#33502f" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
+// 도로가 굽는 지점에 있는 작은 카페 — 원화의 사이드뷰 기준 배치.
 function Cafe({ mood }) {
   return (
-    <group position={[5.5, 0, -14]}>
-      <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.2, 2.4, 2.4]} />
+    <group position={[-3.4, 0, -13]}>
+      <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2.8, 2.1, 2.2]} />
         <meshStandardMaterial color="#2a2622" />
       </mesh>
-      <mesh position={[0, 1.2, 1.21]}>
-        <planeGeometry args={[2.6, 1.6]} />
-        <meshStandardMaterial color={mood.key} emissive={mood.key} emissiveIntensity={0.8} />
+      <mesh position={[0, 1.05, 1.11]}>
+        <planeGeometry args={[2.3, 1.3]} />
+        <meshStandardMaterial color="#ff8a5c" emissive="#ff6a3c" emissiveIntensity={0.9} />
       </mesh>
-      <mesh position={[0, 2.55, 0]} castShadow>
-        <boxGeometry args={[3.6, 0.3, 2.8]} />
+      <mesh position={[0, 2.3, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[2.1, 0.7, 4]} />
         <meshStandardMaterial color="#1c1a17" />
       </mesh>
+      <pointLight position={[0, 1.2, 1.5]} color="#ff8a5c" intensity={0.7} distance={5} />
     </group>
   );
 }
@@ -159,41 +203,77 @@ export default function BlockoutStage({ genre }) {
       <ambientLight color={mood.ambient} intensity={mood.ambientI} />
       <directionalLight position={[3, 6, 2]} color={mood.key} intensity={mood.keyI} castShadow />
 
-      {/* 도로 + 인도 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2, 0, -10]} receiveShadow>
-        <planeGeometry args={[8, 40]} />
+      {/* 도로(2차선) + 인도 — 원화 기준 폭을 좁혀 실제 비율에 맞춘다 */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.5, 0, -10]} receiveShadow>
+        <planeGeometry args={[5.5, 40]} />
         <meshStandardMaterial color={mood.road} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.6, 0.01, -6]} receiveShadow>
         <planeGeometry args={[2.2, 20]} />
         <meshStandardMaterial color="#5c5c58" />
       </mesh>
-      {/* 중앙선 */}
+      {/* 황색 이중 중앙선 */}
+      {[-0.06, 0.06].map((dx) => (
+        <mesh key={dx} rotation={[-Math.PI / 2, 0, 0]} position={[1.5 + dx, 0.015, -12]}>
+          <planeGeometry args={[0.04, 34]} />
+          <meshStandardMaterial color="#e0b840" />
+        </mesh>
+      ))}
+      {/* 흰색 점선 (인도쪽 차선 경계) */}
       {Array.from({ length: 10 }, (_, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[2, 0.015, -1.5 - i * 2.2]}>
-          <planeGeometry args={[0.12, 1.1]} />
-          <meshStandardMaterial color="#d8c060" />
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0.15, 0.015, -1.5 - i * 2.2]}>
+          <planeGeometry args={[0.08, 1.1]} />
+          <meshStandardMaterial color="#d8d8d0" />
         </mesh>
       ))}
 
-      <Shelter />
+      <Shelter mood={mood} />
       <Bench />
       <Cafe mood={mood} />
-      <BackWall />
 
-      {[-1.3, -1.35, -1.4].map((x, i) => (
-        <Tree key={i} position={[x - 0.3, 0, -1.4 - i * 2.6]} scale={0.9 + i * 0.15} />
+      {/* 벤치 뒤쪽 담장 + 산울타리 */}
+      <group position={[0.6, 0, 1.9]}>
+        <mesh position={[0, 0.55, 0]} receiveShadow castShadow>
+          <boxGeometry args={[7, 1.1, 0.25]} />
+          <meshStandardMaterial color="#7a7264" />
+        </mesh>
+        {Array.from({ length: 8 }, (_, i) => (
+          <mesh key={i} position={[-3 + i * 0.9, 1.25, 0]} castShadow>
+            <sphereGeometry args={[0.42, 8, 8]} />
+            <meshStandardMaterial color="#33502f" />
+          </mesh>
+        ))}
+      </group>
+
+      {/* 도로 건너편 — 억새 앞줄 + 삼나무열(지붕보다 훨씬 큼) + 둥근 전나무 섞기 */}
+      <Reeds position={[3.1, 0, -1.8]} count={5} />
+      <Reeds position={[3.4, 0, -3.2]} count={6} />
+      <Reeds position={[3.0, 0, -4.6]} count={5} />
+
+      {[
+        [3.7, -2.2, 6.5, -0.04],
+        [4.1, -4.4, 7.5, 0.03],
+        [3.6, -6.6, 6.0, -0.02],
+        [4.3, -9.2, 8.5, 0.05],
+        [3.8, -12.0, 7.0, -0.03],
+        [4.6, -15.5, 9.0, 0.02],
+      ].map(([x, z, h, lean], i) => (
+        <Cypress key={i} position={[x, 0, z]} height={h} lean={lean} />
       ))}
-      {[3.2, 3.6, 4.1, 4.6].map((x, i) => (
-        <Tree key={`r${i}`} position={[x, 0, -3 - i * 3.4]} scale={0.8 + i * 0.1} />
+      <RoundPine position={[3.3, 0, -5.6]} scale={1.1} />
+      <RoundPine position={[4.0, 0, -10.4]} scale={1.3} />
+
+      {/* 왼쪽(관객 쪽) 나무열 — 담장 너머 */}
+      {[-1.6, -2.0, -1.4].map((x, i) => (
+        <Cypress key={`l${i}`} position={[x, 0, -1.2 - i * 2.4]} height={5 + i * 0.8} lean={(i - 1) * 0.03} />
       ))}
       {/* 담장 너머 나무 — 뒤돌아봤을 때도 깊이가 있게 */}
       {[-2.5, -0.5, 1.5, 3.5].map((x, i) => (
-        <Tree key={`b${i}`} position={[x, 0, 2.6 + (i % 2) * 0.6]} scale={1.0 + i * 0.08} />
+        <RoundPine key={`b${i}`} position={[x, 0, 2.6 + (i % 2) * 0.6]} scale={1.0 + i * 0.08} />
       ))}
 
-      <StreetLamp position={[3.6, 0, -6]} on={genre === "H"} />
-      <StreetLamp position={[1.6, 0, -0.3]} on />
+      <StreetLamp position={[2.8, 0, -6]} on={genre === "H"} />
+      <StreetLamp position={[1.4, 0, -0.3]} on />
     </>
   );
 }
