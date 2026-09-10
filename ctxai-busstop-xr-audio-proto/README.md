@@ -16,8 +16,8 @@ KAIST CTxAI 캡스톤 7조 <버스 정류장>의 팀 도구이자 체험 프로�
 `?rig=0`(리깅 캐릭터 대신 캡슐) · `?fx=0`(후처리·도로 반사 끄기, Quest 성능 점검) · `?pool=1`(대사 변주 풀) · `?bias=H:6`(강제 배합, 발표·QA용 — 정지 관객은 로맨스 증거가 쌓여 6 정도라야 확실히 기운다) · `?rigtest=1`(캐릭터 서기·앉기 점검) ·
 `?auto=1`(게이트 없이 1.5초 뒤 자동 시작) · `?gaze=0`(데스크톱 자동 시선 끄기 — 기본은 옆사람이 앉으면 카메라가 오른쪽으로 돈다)
 
-헤드리스 관찰: `node scripts/cdp.mjs open 9224 "http://localhost:3017/film?auto=1&cam=0"` 로 탭을 열고 `loop 9224 <id> shots/run 5 54` 로 5초마다 PNG·HUD 텍스트를 남긴다
-(크롬은 `--headless=new --remote-debugging-port=9224 --user-data-dir=/tmp/chrome-film2 --window-size=1600,900` 으로 띄운다). `drag` 로 고개를 돌리고 `shot` 으로 한 장 찍는다.
+헤드리스 관찰: `scripts/observe.sh shots/run1` 한 줄이 헤드리스 크롬을 띄우고 `/film?auto=1&cam=0` 을 열어 5초마다 PNG·HUD 텍스트(`hud.txt`)를 남긴다(dev 서버 포트는 `FILM_PORT`, 기본 3017).
+낱개로는 `node scripts/cdp.mjs open|eval|shot|drag|loop|close` — `drag` 로 고개를 돌리고 `shot` 으로 한 장 찍는다. 탭은 한 번에 하나만(둘이면 fps 가 떨어져 영화 시간이 느려진다).
 
 설계와 매핑표, 남은 일은 [`Bus/규격/반응형_실시간_영화.md`](../Bus/규격/반응형_실시간_영화.md).
 
