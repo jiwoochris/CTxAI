@@ -1,55 +1,50 @@
-# 버스정류장 XR — 오디오 프로토타입 (Next.js)
+# 정류장 — 프로젝트 앱 (Next.js)
 
-기다림 버스정류장 XR 5-Track 프로젝트의 8/17 중간평가용 오디오 프로토타입.
-공포 트랙에 대해 (1) 시각+청각 장면 체험 데모 (2) 블라인드 방향 지각 테스트 를 제공합니다.
+KAIST CTxAI 캡스톤 7조 <버스 정류장>의 팀 도구이자 체험 프로토타입입니다. 한 저장소 안에
+팀 대시보드(할 일·에셋·오디오 듣기)와 관객용 체험 화면이 같이 들어 있습니다.
 
-## 현재 상태 / 알아둘 점
+## 체험 화면 — 어느 것을 열어야 하나
 
-- 실제 녹음/제작된 음원이 없어 Web Audio API로 합성한 **테스트 음원**을 사용합니다 (`lib/audio.js`).
-- 방향감은 단순 좌우 패닝이 아니라 `PannerNode`(HRTF)로 근사했습니다. 실제 전시에서는 Unity + Resonance Audio / Steam Audio(앰비소닉)로 교체될 placeholder입니다.
-- 나머지 4개 트랙(스릴러/코미디/로맨스/멜로)은 사운드 이벤트 스펙이 아직 미확정이라 무드 프리뷰만 제공합니다.
-- AI 대화(D 테스트)는 이번 단계 범위 밖입니다 (스펙 문서 기준 9월 항목).
+| 주소 | 무엇 | 상태 |
+|---|---|---|
+| **`/film`** | **반응형 실시간 영화.** 관객이 어디를 보고 어떻게 움직이는지가 체험 내내 하늘·빛·안개·가로등·옆사람의 거리와 시선·대사 간격·BGM·대사 변주를 움직인다. 헤드셋(WebXR)과 데스크톱 드래그 모두 지원 | 2026-09-10 · 현재 기준 |
+| `/story-vr` | 관찰 11초 → 판정 1회 → 고정 장면. 3D 그레이박스 + WebXR | 이전 버전 |
+| `/story-v2` | 위와 같은 판정에 2D 원화 배경 | 이전 버전 |
+| `/story` | 장르 하나를 확정하는 v1 | 구버전 |
 
-관련 문서: `버스정류장XR_오디오프로토타입_스펙_2026-07-31`, `디렉터스컷_프로젝트_기준및지침_v2`.
+`/film` URL 옵션: `?speed=3`(영화 시간 배속) · `?cam=0`(웹캠 채널 끄기) · `?hud=0`(HUD 숨김) ·
+`?rig=0`(리깅 캐릭터 대신 캡슐) · `?pool=1`(대사 변주 풀) · `?bias=H:2.5`(강제 배합, 발표·QA용) · `?rigtest=1`(캐릭터 점검)
+
+설계와 매핑표, 남은 일은 [`Bus/규격/반응형_실시간_영화.md`](../Bus/규격/반응형_실시간_영화.md).
 
 ## 로컬 실행
 
 ```bash
 npm install
-npm run dev
+npm run pull-assets   # 팀 대시보드에 올라간 오디오를 public/reactive/audio/ 로 (최초 1회, 이미 커밋돼 있으면 생략)
+npm run film          # dev 서버 — 셸에 NODE_ENV·TURBOPACK 이 잡혀 있어도 안전
 ```
 
-`http://localhost:3000` 접속. 헤드폰 착용 권장.
+`http://localhost:3000/film`. 헤드폰 권장. 빌드는 `npm run build:clean`, 회귀 테스트는 `npm test`.
 
-## GitHub 업로드
+`/film`은 외부 서비스 없이 돕니다. 실시간 대사 생성(`/api/dialogue`)·음성 합성(`/api/tts`)·STT와 톤 분석(`/api/mood`, `/api/voicetone`)을 쓸 때만
+`.env.local`에 `OPENROUTER_API_KEY` 하나가 필요합니다.
 
-```bash
-git init
-git add .
-git commit -m "Bus stop XR audio prototype"
-git branch -M main
-git remote add origin https://github.com/ctxai/<repo-이름>.git
-git push -u origin main
-```
-
-## Vercel 배포
-
-1. https://vercel.com 에서 New Project → 위 GitHub 저장소 선택
-2. Framework Preset: Next.js (자동 감지됨), 별도 환경변수 없음
-3. Deploy
-
-빌드 명령/출력 디렉터리는 Next.js 기본값 그대로 사용하면 됩니다 (`next build`, `.next`).
-
-## 폴더 구조
+## 구조
 
 ```
-app/            Next.js App Router 페이지
-components/     UI 컴포넌트 (좌석 선택, 트랙 정보, 장면 데모, 방향 테스트, 결과표)
-lib/            트랙/이벤트 데이터, 오디오 합성, CSV 내보내기
+app/film/                 반응형 실시간 영화 페이지 (디렉터·오디오·대사 루프·HUD·종료 카드)
+app/api/session/          세션 기록 저장 (data/sessions/) + 자기보고 일치율 집계
+lib/directionState.js     연출 상태 — 증거 누적·완만 추종·정착도·확신도·궤적
+lib/directionMap.js       매핑표(온톨로지) — 장르 앵커값, 사건 트리거, BGM 게인
+lib/headPoseSense.js      헤드 포즈 센서 — 사건별·창 단위 증거
+lib/filmTimeline.js       타임라인 — 다섯 사건과 배우 위치(시간의 순수 함수)
+lib/dialoguePool.js       대사 풀 근접 매칭
+components/ReactiveStage.jsx  반응형 무대 (BlockoutStage 지형 재사용, 리깅 임시 배우)
+public/reactive/audio/    대사 46줄·SFX 18·BGM 3·안내방송 (+ pool/ 변주 138줄)
+public/reactive/models/   Meshy 리깅 캐릭터 (meshopt, 5~7MB)
+scripts/                  pull-assets · gen-dialogue-pool · sim-headpose · test-direction · synthesize-dialogue(레거시)
 ```
 
-## 다음 단계 후보
-
-- 합성음 → 실제 녹음/제작 음원으로 교체
-- 방향 테스트 결과를 로컬 CSV 다운로드가 아니라 서버/스프레드시트에 자동 적재
-- 나머지 4개 트랙 사운드 이벤트 스펙 확정 후 동일 구조로 확장
+대시보드·업로드·할 일·조명 프리셋(`/`, `/todo`, `/upload`, `/whitebox`, `/vo`, `/sfx`)은 8월 구조 그대로이며 Supabase를 씁니다.
+그쪽은 `ONBOARDING.md`를 보세요.

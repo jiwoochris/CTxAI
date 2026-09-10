@@ -11,7 +11,9 @@
     "lint": "next lint",
     "milestones": "node scripts/gen-milestones.mjs",
     "synthesize-dialogue": "node scripts/synthesize-dialogue.mjs",
-    "pull-assets": "node scripts/pull-assets.mjs"
+    "pull-assets": "node scripts/pull-assets.mjs",
+    "test": "node scripts/test-direction.mjs && node scripts/sim-headpose.mjs",
+    "gen-pool": "node scripts/gen-dialogue-pool.mjs"
   },
   "dependencies": {
     "@google/model-viewer": "^4.3.1",

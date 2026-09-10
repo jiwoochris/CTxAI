@@ -28,7 +28,16 @@ export async function POST(req) {
   return Response.json({ ok: true, id });
 }
 
-export async function GET() {
+export async function GET(req) {
+  const id = new URL(req.url).searchParams.get("id");
+  if (id) {
+    // 경로 탈출 방지 — 파일명 문자만 허용
+    if (!/^[\w\-]+$/.test(id)) return Response.json({ ok: false, error: "bad id" }, { status: 400 });
+    try {
+      const j = JSON.parse(await fs.readFile(path.join(DIR, `${id}.json`), "utf8"));
+      return Response.json({ ok: true, session: j });
+    } catch { return Response.json({ ok: false, error: "not found" }, { status: 404 }); }
+  }
   let names = [];
   try { names = (await fs.readdir(DIR)).filter((n) => n.endsWith(".json")).sort(); } catch { /* 아직 없음 */ }
   const items = [];

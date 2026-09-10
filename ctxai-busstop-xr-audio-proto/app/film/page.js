@@ -45,6 +45,7 @@ const GENRE_META = {
   C: { accent: "#e0a86a", label: "블랙코미디" },
 };
 const CAM_WINDOW_MS = 8000;
+const EVENT_LABEL = { poster: "포스터", cafeBell: "우비 인물", truckSplash: "물보라", frog: "개구리", cat: "고양이", catScream: "비명" };
 
 // URL 옵션은 마운트 뒤에 읽는다 — 서버 렌더와 첫 클라이언트 렌더가 같아야 하이드레이션 오류가 없다.
 function useQuery() {
@@ -208,7 +209,7 @@ export default function FilmPage() {
       const film = filmRef.current;
       // 착석 뒤 옆사람의 거리는 상태가 정한다 (요청서 v5.0 §2.7: 0.5~1.4m)
       film.npcDistance = paramsRef.current?.npcDistance ?? 0.9;
-      setHud({ ...snap, t: film.t, params: paramsRef.current, lastEvidence: d.st.lastEvidence, camStatus });
+      setHud({ ...snap, t: film.t, params: paramsRef.current, lastEvidence: d.st.lastEvidence, camStatus, events: sensorRef.current?.report?.().events || [] });
     }, 250);
     return () => clearInterval(id);
   }, [phase, camStatus]);
@@ -455,6 +456,20 @@ export default function FilmPage() {
           </div>
           {snap.lastEvidence && (
             <div className={f.lastEv}>↳ {snap.lastEvidence.source} {snap.lastEvidence.note ? `· ${snap.lastEvidence.note}` : ""}</div>
+          )}
+          {snap.events?.length > 0 && (
+            <div className={f.evList}>
+              {snap.events.map((e) => {
+                const top = ["R", "H", "C"].sort((a, b) => e[b] - e[a])[0];
+                return (
+                  <div key={e.name} className={f.evRow}>
+                    <span>{EVENT_LABEL[e.name] || e.name}</span>
+                    <span className={s.dim}>{e.feats.looked ? `봤음 ${e.feats.lookSec.toFixed(1)}s` : "안 봄"}{e.feats.recheck ? " · 재확인" : ""}{e.feats.retreat > 0.03 ? " · 물러남" : ""}</span>
+                    <span style={{ color: GENRE_META[top].accent }}>{GENRE_META[top].label} {Math.round(e[top] * 100)}</span>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
