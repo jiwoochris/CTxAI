@@ -24,12 +24,23 @@ if (!KEY) { console.error("OPENROUTER_API_KEY 가 필요합니다"); process.exi
 const ARGS = process.argv.slice(2);
 const ONLY = ARGS.includes("--only") ? ARGS[ARGS.indexOf("--only") + 1] : null;
 const DRY = ARGS.includes("--dry");
+const REDO_MISMATCH = ARGS.includes("--redo-mismatch"); // 낭독 전사가 원문과 다른 줄만 다시 합성
+
+// 전사 비교용 정규화 — 구두점·공백·말줄임·대괄호 지시([웃음] 등)는 무시하고 글자만 본다.
+function norm(s) { return String(s || "").replace(/\[[^\]]*\]/g, "").replace(/[\s.,!?…·'"“”‘’~\-—()]/g, ""); }
+function mismatch(entry) { return !!entry.transcript && norm(entry.transcript) !== norm(entry.text); }
 
 const OUT = path.resolve("public/reactive/audio/pool");
 fs.mkdirSync(OUT, { recursive: true });
 const MANIFEST = path.join(OUT, "manifest.json");
 const manifest = fs.existsSync(MANIFEST) ? JSON.parse(fs.readFileSync(MANIFEST, "utf8")) : { voices: {}, lines: [] };
 manifest.tints = manifest.tints || {}; // "G_S" → [{seq,text}] — LLM 변주 텍스트 원본(합성 전 보존)
+if (REDO_MISMATCH) {
+  const bad = manifest.lines.filter(mismatch);
+  console.log(`전사 불일치 ${bad.length}줄 재합성`);
+  for (const b of bad) { try { fs.unlinkSync(path.join(OUT, b.file)); } catch { /* 없음 */ } }
+  manifest.lines = manifest.lines.filter((l) => !mismatch(l));
+}
 
 // Haiku 4.5 기본 — Sonnet 5는 OpenRouter 경유 시 사고 토큰이 max_tokens 를 먹어 JSON이 잘리는 일이 있었다(실측).
 const LLM_MODEL = process.env.OPENROUTER_POOL_MODEL || "anthropic/claude-haiku-4.5";
@@ -185,7 +196,11 @@ await pool(jobs, 6, async (j) => {
   const done = manifest.lines.find((m) => m.genre === j.G && m.secondary === j.S && m.seq === j.seq && m.file && fs.existsSync(path.join(OUT, m.file)));
   if (done) return done;
   if (DRY) { console.log("  dry", j.key, j.text); return null; }
-  const { wav, transcript } = await tts(j.text, CHARACTER[j.G].voice, j.style);
+  let { wav, transcript } = await tts(j.text, CHARACTER[j.G].voice, j.style);
+  if (norm(transcript) !== norm(j.text)) {
+    const retry = await tts(j.text, CHARACTER[j.G].voice, j.style);
+    if (norm(retry.transcript) === norm(j.text) || retry.transcript.length < transcript.length) ({ wav, transcript } = retry);
+  }
   const wavPath = path.join(OUT, `${j.key}.wav`);
   fs.writeFileSync(wavPath, wav);
   const file = toM4a(wavPath);

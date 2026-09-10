@@ -129,6 +129,9 @@ export default function FilmPage() {
   const showHud = q.hud !== "0";
   const useRig = q.rig !== "0"; // ?rig=0 이면 리깅 캐릭터 대신 캡슐 실루엣
   const usePool = q.pool === "1"; // 대사 풀 모드 (lib/dialoguePool.js)
+  // ?bias=H (또는 H:1.5) — 시작 시 그 장르 증거를 미리 넣어 배합을 기울인다. 발표·QA용:
+  // 같은 장면을 강제 배합으로 비교해 볼 때 쓴다. 실제 관객 세션에서는 쓰지 않는다.
+  const bias = useMemo(() => { const [g, w] = String(q.bias || "").split(":"); return ["R", "H", "C"].includes(g) ? { g, w: Number(w) || 1.2 } : null; }, [q.bias]);
   const poolRef = useRef(null);
   useEffect(() => { if (usePool) loadDialoguePool().then((p) => { poolRef.current = p; }); }, [usePool]);
 
@@ -233,6 +236,7 @@ export default function FilmPage() {
     paramsRef.current = null;
     filmRef.current = { running: true, t: 0, dominant: null, npcDistance: 0.9, busAt: null, onFrame: null };
     setDominant(null); setLine(null); setCaption("");
+    if (bias) d.pushEvidence({ [bias.g]: 1 }, bias.w, "bias", `?bias=${bias.g}`);
     d.setPhase("intro");
     setPhase("intro");
     ensureBgm();
