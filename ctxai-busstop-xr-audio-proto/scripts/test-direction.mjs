@@ -78,4 +78,19 @@ test("타임라인 — 판정 전엔 옆사람이 없고, 착석 뒤 거리는 �
   assert.equal(truck.truck.visible, true); assert.ok(truck.splash != null);
 });
 
+test("타임라인 — 옆사람은 관객 코앞(0.9m 안)으로 들어오지 않고, 버스 문 앞으로 걸어간다", () => {
+  for (let t = T.npcWalkStart; t <= T.npcSeated; t += 0.25) {
+    const { npc } = evalActors(t, { dominant: "R", npcDistance: 0.7 });
+    const d = Math.hypot(npc.x, npc.z - 0.35);
+    assert.ok(d >= 0.9, `t=${t} 관객과 ${d.toFixed(2)}m`);
+  }
+  const busAt = 100;
+  const stop = evalActors(busAt + 7.5, { dominant: "R", npcDistance: 0.7, busAt });
+  assert.ok(close(stop.bus.x, -1.2, 0.05) && stop.bus.doorOpen, "정차 위치·문 열림");
+  const gone = evalActors(busAt + 13.9, { dominant: "R", npcDistance: 0.7, busAt });
+  assert.ok(close(gone.npc.x, 1.2, 0.1) && gone.npc.z < -2.5, `문 앞(1.2,-2.7)으로: ${gone.npc.x.toFixed(2)},${gone.npc.z.toFixed(2)}`);
+  const h = evalActors(busAt + 13.9, { dominant: "H", npcDistance: 1.2, busAt });
+  assert.ok(h.npc.z > 3, "공포는 벤치 뒤 풀숲으로");
+});
+
 console.log(`\n${n} 통과${process.exitCode ? " (실패 있음)" : ""}`);
