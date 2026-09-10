@@ -226,9 +226,10 @@ export default function FilmPage() {
   // 웹캠 채널 — 8초 창을 반복. 얼굴이 대부분 안 잡히면(헤드셋 착용 등) 그 창은 버린다.
   async function camLoop() {
     const video = videoRef.current;
-    while (!abortRef.current.aborted && video && directionRef.current) {
+    const token = abortRef.current; // 이 회차의 중단 토큰 — reset 뒤 새 회차가 시작돼도 옛 루프는 여기서 멈춘다
+    while (!token.aborted && video && directionRef.current) {
       const obs = await observe(video, CAM_WINDOW_MS, null);
-      if (abortRef.current.aborted) break;
+      if (token.aborted) break;
       if (!obs.ok) { setCamStatus("model-fail"); break; }
       const m = obs.metrics;
       if ((m.lostTrackingSec || 0) > (CAM_WINDOW_MS / 1000) * 0.6) { setCamStatus("no-face"); continue; }
@@ -342,12 +343,13 @@ export default function FilmPage() {
   // 타임라인과 나란히 돈다 — 옆사람이 걸어오는 동안 세계가 묻고, 관객이 답하면 앉은 뒤의 장면이 그 답을 반영한다.
   async function runVoiceFlow() {
     const d = directionRef.current;
-    if (!d || abortRef.current.aborted) return;
+    const token = abortRef.current;
+    if (!d || token.aborted) return;
     setVoiceStatus("asking");
     await playFile("vo_q1.mp3", 1);
     setVoiceStatus("listening");
     let out = await scoreBlob(await captureAnswer(5000));
-    if (!out.textScores && !abortRef.current.aborted) {
+    if (!out.textScores && !token.aborted) {
       setVoiceStatus("reprompt");
       await playFile("vo_filler1.mp3", 0.9);
       await playFile("sfx_inhale.mp3", 0.8);
@@ -355,7 +357,7 @@ export default function FilmPage() {
       setVoiceStatus("listening");
       out = await scoreBlob(await captureAnswer(4000));
     }
-    if (abortRef.current.aborted) return;
+    if (token.aborted) return;
     if (out.textScores) d.pushEvidence(out.textScores, 0.9, "voice:text", out.transcript.slice(0, 40));
     if (out.voiceScores) d.pushEvidence(out.voiceScores, 0.5, "voice:tone");
     if (out.noun) { setSignText(`${out.noun} 앞`); d.markEvent("sign", out.noun); }
@@ -367,6 +369,7 @@ export default function FilmPage() {
   async function runScene() {
     const d = directionRef.current;
     const film = filmRef.current;
+    const token = abortRef.current;
     const dom = film.dominant || "R";
     const base = DIALOGUE_V2_LINES.filter((l) => l.genre === dom);
     let insertedCallback = false;
@@ -375,7 +378,7 @@ export default function FilmPage() {
     const poolOk = !!pool?.ok && poolCoverage(pool, dom).base === base.length;
 
     for (let i = 0; i < base.length; i++) {
-      if (abortRef.current.aborted) return;
+      if (token.aborted) return;
       const p = paramsRef.current || {};
       const { secondary, secondaryWeight } = rank(d.st.current);
 
@@ -409,7 +412,7 @@ export default function FilmPage() {
       const gap = (paramsRef.current?.npcSilence ?? 1.2) * 1000;
       await wait(gap / speed);
     }
-    if (abortRef.current.aborted) return;
+    if (token.aborted) return;
     setLine(null);
     film.busAt = film.t;
     d.setPhase("bus");
@@ -417,8 +420,9 @@ export default function FilmPage() {
     playSfx("07", { volume: 0.7 });
     setCaption("272");
     // 문 열림 → 인물 퇴장 → 버스 출발 → 암전 (filmTimeline의 busAt 기준 오프셋)
-    await wait((7.2 * 1000) / speed); playSfx("08", { volume: 0.5 }); setCaption("");
+    await wait((7.2 * 1000) / speed); if (token.aborted) return; playSfx("08", { volume: 0.5 }); setCaption("");
     await wait((14 * 1000) / speed);
+    if (token.aborted) return;
     d.setPhase("end");
     setPhase("end");
     film.running = false;
