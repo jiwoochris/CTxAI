@@ -100,7 +100,7 @@ function RiggedPerson({ rig = "A", walking = false, scale = 1, facing = 0 }) {
 
 // 정류장 이름 표지판 — 요청서 v5.0 §2.6 "관객이 말한 단어를 정류장 이름 자리에 실시간으로 써 넣는다".
 // 글자 값은 D5 그대로: 색 #F5F2E8, Pretendard Bold, 글자 높이 = 이름 자리 판 높이의 45%.
-function SignBoard({ text = "호수공원 입구", position = [-0.55, 2.02, -1.02] }) {
+function SignBoard({ text = "호수공원 입구", position = [-0.62, 1.74, -1.03] }) {
   const texture = useMemo(() => {
     if (typeof document === "undefined") return null;
     const W = 1024, H = 256;
