@@ -575,9 +575,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       <Reeds position={[1.0, 0, 1.88]} count={6} />
       <Reeds position={[2.6, 0, 1.92]} count={7} />
       <Reeds position={[1.9, 0, 1.9]} count={5} />
-      {Array.from({ length: 4 }, (_, i) => (
-        <RoundPine key={`bg${i}`} position={[-3 + i * 2, 0, 3.4 + (i % 2) * 0.5]} scale={0.9 + i * 0.08} />
-      ))}
+      {/* 벤치 뒤 원뿔 전나무는 RealForest 의 뒷줄 침엽수로 대체됐다 */}
       <Reeds position={[6.6, 0, -1.8]} count={5} />
       <Reeds position={[6.9, 0, -3.2]} count={6} />
       <Reeds position={[6.5, 0, -4.6]} count={5} />

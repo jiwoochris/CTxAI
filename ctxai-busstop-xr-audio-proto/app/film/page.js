@@ -517,7 +517,9 @@ export default function FilmPage() {
             <Effects enabled={fx} />
             <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
           </XR>
-          <OrbitControls target={[0, 1.15, -4]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={0.5} />
+          {/* 드래그 = 제자리에서 고개 돌리기. 타깃을 카메라 바로 앞 1cm 에 두면 궤도 회전이 머리 회전처럼 된다
+              (타깃이 멀면 카메라가 반대편으로 돌아가 도로 한가운데서 정류장을 보게 된다). */}
+          <OrbitControls target={[0, 1.15, 0.34]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={-0.35} />
         </Canvas>
         <div className={s.vignette} />
       </div>

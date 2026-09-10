@@ -13,7 +13,7 @@ KAIST CTxAI 캡스톤 7조 <버스 정류장>의 팀 도구이자 체험 프로�
 | `/story` | 장르 하나를 확정하는 v1 | 구버전 |
 
 `/film` URL 옵션: `?speed=3`(영화 시간 배속) · `?scene=240`(장면 목표 길이 초) · `?cam=0`(웹캠 채널 끄기) · `?hud=0`(HUD 숨김) · `?voice=1`(음성 채널) · `?voicefake=horror`(마이크 대신 샘플) ·
-`?rig=0`(리깅 캐릭터 대신 캡슐) · `?pool=1`(대사 변주 풀) · `?bias=H:2.5`(강제 배합, 발표·QA용) · `?rigtest=1`(캐릭터 점검)
+`?rig=0`(리깅 캐릭터 대신 캡슐) · `?fx=0`(후처리·도로 반사 끄기, Quest 성능 점검) · `?pool=1`(대사 변주 풀) · `?bias=H:2.5`(강제 배합, 발표·QA용) · `?rigtest=1`(캐릭터 점검)
 
 설계와 매핑표, 남은 일은 [`Bus/규격/반응형_실시간_영화.md`](../Bus/규격/반응형_실시간_영화.md).
 
@@ -42,7 +42,9 @@ lib/filmTimeline.js       타임라인 — 다섯 사건과 배우 위치(시간
 lib/dialoguePool.js       대사 풀 근접 매칭
 components/ReactiveStage.jsx  반응형 무대 (BlockoutStage 지형 재사용, 리깅 임시 배우)
 public/reactive/audio/    대사 46줄·SFX 18·BGM 3·안내방송 (+ pool/ 변주 138줄)
-public/reactive/models/   Meshy 리깅 캐릭터 (meshopt, 5~7MB)
+public/reactive/models/   Meshy 리깅 캐릭터 (meshopt, 5~7MB) · props/ PolyHaven CC0 소품·침엽수 (26MB)
+public/reactive/hdri/     PolyHaven CC0 순수 하늘 HDRI 3장 (2k, 13MB)
+scripts/blender/          Mixamo FBX → GLB 병합 스크립트 (Blender 헤드리스)
 scripts/                  pull-assets · gen-dialogue-pool · sim-headpose · test-direction · synthesize-dialogue(레거시)
 ```
 
