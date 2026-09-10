@@ -17,7 +17,7 @@
 // 인프라: Supabase·Vercel·ElevenLabs 없이 동작한다. 오디오는 public/reactive/audio
 // (scripts/pull-assets.mjs 로 받은 로컬 파일)에서만 읽는다.
 //
-// URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기)
+// URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기) · ?fx=0 (후처리·도로 반사 끄기)
 //           ?pool=1 (대사 풀 모드 — 원문 46줄 대신 상태에 따라 보조 장르 변주를 줄마다 고른다. 목소리는 OpenRouter 합성)
 //           ?scene=240 (캐릭터 장면 목표 길이 초 — 대사 사이 침묵을 늘려 안내방송의 "5분 후 도착"에 가깝게. 기본 0 = 자연 길이)
 //           ?voice=1 (음성 채널 — 안내방송 뒤 "당신은 무엇을 기다리고 있습니까?"를 묻고 답을 STT·톤 분석해 증거로 넣고,
@@ -27,6 +27,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { XR, createXRStore, useXR } from "@react-three/xr";
+import { EffectComposer, Bloom, Vignette, ToneMapping } from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
 import { Euler, MathUtils } from "three";
 import ReactiveStage from "@/components/ReactiveStage";
 import { createDirectionState, rank } from "@/lib/directionState";
@@ -103,6 +105,19 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
   return null;
 }
 
+// 후처리 — 블룸·비네트·ACES 톤매핑. WebXR 세션 중에는 컴포저가 스테레오 렌더와 충돌하므로 끈다.
+function Effects({ enabled }) {
+  const session = useXR((xr) => xr.session);
+  if (!enabled || session) return null;
+  return (
+    <EffectComposer disableNormalPass multisampling={0}>
+      <Bloom luminanceThreshold={0.92} luminanceSmoothing={0.2} intensity={0.35} mipmapBlur />
+      <Vignette eskil={false} offset={0.18} darkness={0.6} />
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+    </EffectComposer>
+  );
+}
+
 function TrajectoryChart({ trajectory, events }) {
   const W = 660, H = 170, PAD = 8;
   if (!trajectory?.length) return null;
@@ -139,6 +154,7 @@ export default function FilmPage() {
   // 장면 목표 길이(초). 대사 오디오는 합쳐 1~1.5분이라 "5분 후 도착"을 채우려면 침묵을 늘려야 한다.
   // 침묵은 상태가 정한 값(npcSilence)을 하한으로 두고, 남는 시간을 줄 사이에 고르게 나눈다.
   const sceneTarget = Math.max(0, Number(q.scene) || 0);
+  const fx = q.fx !== "0"; // ?fx=0 이면 후처리·도로 반사 끄기 (성능 점검용)
   const useVoice = q.voice === "1" || !!voiceFake;
   const [signText, setSignText] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("off");
@@ -494,10 +510,11 @@ export default function FilmPage() {
   return (
     <div className={s.stage} style={{ "--accent": accent }}>
       <div className={s.bgLayer}>
-        <Canvas shadows>
+        <Canvas shadows="soft" gl={{ antialias: true }}>
           <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} />
+            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} reflect={fx} benchYaw={Number(q.benchyaw) || 0} />
+            <Effects enabled={fx} />
             <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
           </XR>
           <OrbitControls target={[0, 1.15, -4]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={0.5} />

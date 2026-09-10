@@ -29,6 +29,7 @@ export const ANCHORS = {
     neonColor: [1.0, 0.60, 0.24], neonIntensity: 1.2,
     cafeGlow: 0.7, lampOn: 0.0,
     npcDistance: 0.9, npcGaze: 0.4, npcSilence: 1.2, npcVolume: 0.95, npcSway: 0.4, npcLean: 0.0,
+    envIntensity: 0.5, skyExposureR: 0.4, skyExposureH: 0.42, skyExposureC: 0.55,
   },
   R: {
     skyTop: [0.72, 0.58, 0.55], skyHorizon: [1.0, 0.80, 0.55],
@@ -41,6 +42,7 @@ export const ANCHORS = {
     neonColor: [1.0, 0.60, 0.24], neonIntensity: 1.0,
     cafeGlow: 1.0, lampOn: 0.0,
     npcDistance: 0.55, npcGaze: 0.75, npcSilence: 0.6, npcVolume: 1.0, npcSway: 0.5, npcLean: 0.15,
+    envIntensity: 0.9, skyExposureR: 0.5, skyExposureH: 0.42, skyExposureC: 0.55,
   },
   H: {
     skyTop: [0.10, 0.13, 0.13], skyHorizon: [0.22, 0.27, 0.26],
@@ -53,6 +55,7 @@ export const ANCHORS = {
     neonColor: [0.37, 0.68, 0.54], neonIntensity: 1.3,
     cafeGlow: 0.35, lampOn: 1.0,
     npcDistance: 1.35, npcGaze: 0.12, npcSilence: 2.3, npcVolume: 0.78, npcSway: 0.1, npcLean: -0.2,
+    envIntensity: 0.18, skyExposureR: 0.4, skyExposureH: 0.13, skyExposureC: 0.55,
   },
   C: {
     skyTop: [0.84, 0.85, 0.80], skyHorizon: [0.98, 0.94, 0.78],
@@ -65,6 +68,7 @@ export const ANCHORS = {
     neonColor: [1.0, 0.81, 0.36], neonIntensity: 1.1,
     cafeGlow: 0.8, lampOn: 0.0,
     npcDistance: 0.85, npcGaze: 0.5, npcSilence: 0.8, npcVolume: 1.1, npcSway: 1.0, npcLean: 0.05,
+    envIntensity: 1.0, skyExposureR: 0.4, skyExposureH: 0.42, skyExposureC: 0.62,
   },
 };
 

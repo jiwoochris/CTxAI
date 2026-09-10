@@ -20,9 +20,11 @@
     "@mediapipe/tasks-vision": "^1.0.1",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "@react-three/postprocessing": "^2.19.1",
     "@react-three/xr": "^6.6.30",
     "marked": "^18.0.9",
     "next": "14.2.35",
+    "postprocessing": "^6.39.5",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "three": "^0.183.0"
