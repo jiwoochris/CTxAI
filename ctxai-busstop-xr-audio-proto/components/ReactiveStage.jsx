@@ -659,6 +659,21 @@ function Bus({ x, z, headlight, doorOpen }) {
         <planeGeometry args={[1.5, 0.3]} />
         {signs.front ? <meshStandardMaterial map={signs.front} emissiveMap={signs.front} emissive="#ffffff" emissiveIntensity={1.4} /> : <meshStandardMaterial color="#ff9a3d" emissive="#ff8a2a" emissiveIntensity={1.6} />}
       </mesh>
+      {/* 뒷유리 · 후미등 — 버스가 떠날 때 관객이 마지막으로 보는 면 */}
+      <mesh position={[0, 2.05, -5.21]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[2.0, 1.0]} />
+        <meshPhysicalMaterial color="#5b7a99" metalness={0.7} roughness={0.04} transparent opacity={0.85} />
+      </mesh>
+      {[-0.9, 0.9].map((dx) => (
+        <mesh key={`tail${dx}`} position={[dx, 0.9, -5.22]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[0.3, 0.16]} />
+          <meshStandardMaterial color="#ff2a1a" emissive="#ff1a0a" emissiveIntensity={1.6} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.45, -5.25]}>
+        <boxGeometry args={[2.4, 0.3, 0.12]} />
+        <meshStandardMaterial color="#1e2328" metalness={0.5} roughness={0.5} />
+      </mesh>
       {/* 전조등 */}
       {[-0.85, 0.85].map((dx) => (
         <group key={dx}>
