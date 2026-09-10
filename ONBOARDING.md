@@ -70,6 +70,7 @@ npx --yes vercel deploy --prod --token="$TOK" --yes
 - **2026-09-10 방향**: "판정기"가 아니라 **반응 기반으로 실시간 3D 엔진 안에서 계속 바뀌는 영화**로 간다. `/film`이 그 1차 구현이고, 연출 상태 하나가 하늘·태양·안개·가로등·도로 반사·옆사람 거리와 시선·대사 간격·BGM을 매 프레임 움직인다. 이산으로 남는 건 "누가 앉는가"와 대사 텍스트뿐. 자세한 구조·매핑표·남은 일은 `Bus/규격/반응형_실시간_영화.md`.
 - **인프라 방침**: `/film`은 Supabase·Vercel·ElevenLabs 없이 돈다. 오디오는 `npm run pull-assets`로 받은 `public/reactive/audio/` 로컬 파일만 쓰고, 새 API 호출은 OpenRouter 하나로 통일한다.
 - 로컬 실행: `npm run film` (셸에 `NODE_ENV`·`TURBOPACK`이 잡혀 있어도 안전하게 dev 서버를 띄운다) → `http://localhost:3000/film`. 데모 압축은 `?speed=3`, 웹캠 없이 `?cam=0`, 대사 변주 풀은 `?pool=1`. 빌드는 `npm run build:clean`.
+- 화면으로 확인: `scripts/observe.sh shots/run1` 이 헤드리스 크롬으로 1배속 완주를 5초마다 PNG·HUD 텍스트로 남긴다(dev 서버는 3017 에서). 캐릭터 서기·앉기만 보려면 `/film?rigtest=1`. 자세한 옵션은 `ctxai-busstop-xr-audio-proto/README.md`.
 
 ### 8월 22일 기준 (이전 내용)
 
