@@ -23,7 +23,7 @@ export const ANCHORS = {
     sunColor: [0.91, 0.93, 0.95], sunIntensity: 0.65, sunElevation: 38, sunAzimuth: 35,
     ambientColor: [0.79, 0.80, 0.83], ambientIntensity: 0.7,
     hemiSky: [0.62, 0.66, 0.72], hemiGround: [0.30, 0.30, 0.28], hemiIntensity: 0.35,
-    fogColor: [0.56, 0.59, 0.64], fogDensity: 0.030,
+    fogColor: [0.56, 0.59, 0.64], fogDensity: 0.022, // 30m 카페와 우비 인물이 보여야 한다 (0.030 은 건너편이 지워졌다)
     shadow: 0.45,          // 0 = 그림자 없음, 1 = 진한 그림자 (directional light 세기·앰비언트 대비로 표현)
     roadColor: [0.62, 0.64, 0.68], roadGloss: 0.5,
     neonColor: [1.0, 0.60, 0.24], neonIntensity: 1.2,
@@ -36,7 +36,7 @@ export const ANCHORS = {
     sunColor: [1.0, 0.81, 0.56], sunIntensity: 1.55, sunElevation: 14, sunAzimuth: -55,
     ambientColor: [0.96, 0.79, 0.60], ambientIntensity: 0.75,
     hemiSky: [0.98, 0.78, 0.60], hemiGround: [0.35, 0.28, 0.22], hemiIntensity: 0.45,
-    fogColor: [0.90, 0.64, 0.45], fogDensity: 0.020,
+    fogColor: [0.90, 0.64, 0.45], fogDensity: 0.016,
     shadow: 1.0,
     roadColor: [0.95, 0.78, 0.60], roadGloss: 0.9,
     neonColor: [1.0, 0.60, 0.24], neonIntensity: 1.0,
@@ -54,7 +54,7 @@ export const ANCHORS = {
     roadColor: [0.30, 0.34, 0.33], roadGloss: 0.4,
     neonColor: [0.37, 0.68, 0.54], neonIntensity: 1.3,
     cafeGlow: 0.35, lampOn: 1.0,
-    npcDistance: 1.35, npcGaze: 0.12, npcSilence: 2.3, npcVolume: 0.78, npcSway: 0.1, npcLean: -0.2,
+    npcDistance: 1.2, npcGaze: 0.12, npcSilence: 2.3, npcVolume: 0.78, npcSway: 0.1, npcLean: -0.2,
     envIntensity: 0.18, skyExposureR: 0.4, skyExposureH: 0.13, skyExposureC: 0.55,
   },
   C: {
@@ -62,7 +62,7 @@ export const ANCHORS = {
     sunColor: [1.0, 0.96, 0.80], sunIntensity: 0.45, sunElevation: 62, sunAzimuth: 0,
     ambientColor: [1.0, 0.96, 0.80], ambientIntensity: 1.15,
     hemiSky: [0.98, 0.95, 0.82], hemiGround: [0.55, 0.53, 0.45], hemiIntensity: 0.6,
-    fogColor: [0.96, 0.93, 0.78], fogDensity: 0.016,
+    fogColor: [0.96, 0.93, 0.78], fogDensity: 0.013,
     shadow: 0.0,
     roadColor: [0.90, 0.88, 0.80], roadGloss: 0.3,
     neonColor: [1.0, 0.81, 0.36], neonIntensity: 1.1,

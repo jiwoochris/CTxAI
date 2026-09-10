@@ -143,7 +143,7 @@ export const SIT_POSE = {
   LeftArm: [0, 0, 0], RightArm: [0, 0, 0],
   LeftForeArm: [0, 0, -0.35], RightForeArm: [0, 0, -0.35],
   Spine: [0, 0, 0.08], Head: [0, 0, -0.05],
-  seatY: 0.46, // 골반 높이(벤치 좌면)
+  seatY: 0.5, // 골반 높이(벤치 좌면 0.50m)
 };
 const tmpV1 = new Vector3(), tmpV2 = new Vector3(), tmpQ = new Quaternion(), tmpE = new Euler();
 
@@ -434,47 +434,74 @@ function Truck({ x, z }) {
 }
 
 function Splash({ p }) {
-  // 0~1 — 물보라가 관객 쪽으로 부채꼴처럼 튀어 오르는 순간
-  const drops = useMemo(() => Array.from({ length: 14 }, (_, i) => ({ a: (i / 14) * Math.PI * 0.9 - Math.PI * 0.45, s: 0.6 + (i % 4) * 0.25 })), []);
-  const spread = p * 1.4;
-  const yArc = Math.sin(Math.min(1, p) * Math.PI) * 0.9;
+  // 0~1 — 트럭이 물웅덩이를 밟아 물보라가 관객 쪽(+z)으로 부채꼴처럼 튀어 오르는 순간. 물방울 36개 + 안개 스프라이트.
+  const drops = useMemo(() => Array.from({ length: 36 }, (_, i) => {
+    const h = (k) => { const v = Math.sin((i + 1) * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
+    return { a: (h(0) - 0.5) * Math.PI * 1.1, s: 0.45 + h(1) * 0.9, up: 0.6 + h(2) * 0.9, r: 0.018 + h(3) * 0.035 };
+  }), []);
+  const q = Math.min(1, p);
+  const spread = q * 2.8;
+  const yArc = Math.sin(q * Math.PI) * 1.15;
   return (
-    <group position={[0.6, 0.05, -3.4]}>
+    <group position={[0.6, 0.05, -3.6]}>
       {drops.map((d, i) => (
-        <mesh key={i} position={[-Math.sin(d.a) * spread * d.s, yArc * d.s, -Math.cos(d.a) * spread * d.s * 0.4]}>
-          <sphereGeometry args={[0.035 * (1 - p * 0.5), 6, 6]} />
-          <meshStandardMaterial color="#c9d6dc" transparent opacity={Math.max(0, 0.9 - p)} />
+        <mesh key={i} position={[Math.sin(d.a) * spread * d.s, yArc * d.up * d.s, Math.cos(d.a) * spread * d.s * 0.9]}>
+          <sphereGeometry args={[d.r * (1 - q * 0.4), 6, 6]} />
+          <meshPhysicalMaterial color="#dfe9ee" roughness={0.1} metalness={0.1} transparent opacity={Math.max(0, 0.95 - q * 0.85)} />
         </mesh>
       ))}
+      {/* 물안개 — 카메라를 보는 스프라이트가 커지며 옅어진다 */}
+      <sprite position={[0, 0.35 + q * 0.6, 0.4 + q * 1.2]} scale={[1.2 + q * 2.6, 0.7 + q * 1.4, 1]}>
+        <spriteMaterial color="#e8f0f4" transparent opacity={0.38 * (1 - q)} depthWrite={false} />
+      </sprite>
     </group>
   );
 }
 
 function Cat({ x, z, running, facingBench, bob }) {
+  // 검은 고양이 — 캡슐 몸통·둥근 머리·세운 꼬리·네 다리. 달릴 땐 몸이 들썩이고 다리가 앞뒤로 흔들린다.
   const rot = facingBench ? 0.2 : -Math.PI / 2;
-  const y = running ? Math.abs(Math.sin(bob * 14)) * 0.06 : 0;
+  const y = running ? Math.abs(Math.sin(bob * 14)) * 0.05 : 0;
+  const legSwing = running ? Math.sin(bob * 14) * 0.6 : 0;
+  const fur = "#1d1a18";
   return (
     <group position={[x, y, z]} rotation={[0, rot, 0]}>
-      <mesh position={[0, 0.16, 0]} castShadow>
-        <boxGeometry args={[0.16, 0.16, 0.42]} />
-        <meshStandardMaterial color="#2a2623" />
+      <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <capsuleGeometry args={[0.085, 0.26, 4, 10]} />
+        <meshStandardMaterial color={fur} roughness={0.95} />
       </mesh>
-      <mesh position={[0, 0.27, 0.22]} castShadow>
-        <boxGeometry args={[0.14, 0.13, 0.14]} />
-        <meshStandardMaterial color="#2a2623" />
+      <mesh position={[0, 0.3, 0.2]} castShadow>
+        <sphereGeometry args={[0.075, 12, 10]} />
+        <meshStandardMaterial color={fur} roughness={0.95} />
       </mesh>
-      {[-0.045, 0.045].map((dx) => (
-        <mesh key={dx} position={[dx, 0.36, 0.22]}>
-          <coneGeometry args={[0.03, 0.06, 4]} />
-          <meshStandardMaterial color="#2a2623" />
-        </mesh>
-      ))}
+      <mesh position={[0, 0.27, 0.265]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
+        <meshStandardMaterial color={fur} roughness={0.95} />
+      </mesh>
       {[-0.04, 0.04].map((dx) => (
-        <mesh key={`e${dx}`} position={[dx, 0.28, 0.295]}>
-          <sphereGeometry args={[0.014, 6, 6]} />
-          <meshStandardMaterial color="#d8ff8a" emissive="#b8ff60" emissiveIntensity={1.2} />
+        <mesh key={dx} position={[dx, 0.37, 0.19]} rotation={[0.2, 0, dx * 6]}>
+          <coneGeometry args={[0.025, 0.06, 4]} />
+          <meshStandardMaterial color={fur} roughness={0.95} />
         </mesh>
       ))}
+      {[-0.03, 0.03].map((dx) => (
+        <mesh key={`e${dx}`} position={[dx, 0.31, 0.262]}>
+          <sphereGeometry args={[0.011, 6, 6]} />
+          <meshStandardMaterial color="#d8ff8a" emissive="#b8ff60" emissiveIntensity={1.4} />
+        </mesh>
+      ))}
+      {/* 다리 — 앞뒤 두 쌍이 엇갈려 흔들린다 */}
+      {[[-0.05, 0.11, 1], [0.05, 0.11, -1], [-0.05, -0.1, -1], [0.05, -0.1, 1]].map(([dx, dz, s], i) => (
+        <mesh key={i} position={[dx, 0.09, dz]} rotation={[legSwing * s, 0, 0]}>
+          <cylinderGeometry args={[0.018, 0.016, 0.17, 6]} />
+          <meshStandardMaterial color={fur} roughness={0.95} />
+        </mesh>
+      ))}
+      {/* 꼬리 — 위로 굽은 토러스 조각 */}
+      <mesh position={[0, 0.24, -0.16]} rotation={[0, Math.PI / 2, running ? 0.3 : 0]}>
+        <torusGeometry args={[0.12, 0.014, 6, 10, Math.PI * 0.75]} />
+        <meshStandardMaterial color={fur} roughness={0.95} />
+      </mesh>
     </group>
   );
 }
@@ -809,8 +836,10 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       </mesh>
       <SignBoard text={signText || "호수공원 입구"} position={[-0.95, 1.78, -1.9]} />
       <Suspense fallback={<Bench />}>
-        {/* 모델 원본은 등받이가 −z 쪽이라 π 돌린다 — 좌면 z≈0.2…0.5(관객·옆사람), 등받이 z≈0.65 */}
-        <Prop url="/reactive/models/props/painted_wooden_bench.glb" scale={1.2} position={[0.55, 0, 0.42]} rotation={[0, Math.PI + benchYaw, 0]} />
+        {/* 모델 원본은 1.17×0.89×0.5m 인데 좌면이 0.64m 로 높다(정점 분석). 등받이가 −z 쪽이라 π 돌리고,
+            길이 1.9배(2.2m — 관객 x=0 과 옆사람 x 1.05~1.55 가 한 벤치), 높이 0.78배(좌면 0.50m), 깊이 0.85배.
+            좌면 z≈0.21…0.42(카메라 z=0.35 가 그 위), 등받이 z≈0.55…0.63 */}
+        <Prop url="/reactive/models/props/painted_wooden_bench.glb" scale={[1.9, 0.78, 0.85]} position={[0.6, 0, 0.42]} rotation={[0, Math.PI + benchYaw, 0]} />
         <Prop url="/reactive/models/props/metal_trash_can.glb" position={[-2.4, 0, -0.9]} rotation={[0, 0.4, 0]} />
         <Prop url="/reactive/models/props/shrub_02.glb" position={[-3.0, 0, 1.9]} />
         <Prop url="/reactive/models/props/shrub_02.glb" position={[3.6, 0, 2.0]} rotation={[0, 1.4, 0]} />
@@ -911,9 +940,14 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
         <Suspense fallback={null}>
           <group position={[-1.6, 0, -3]}><RiggedPerson rig="A" walking facing={0} /></group>
           <group position={[-0.5, 0, -3]}><RiggedPerson rig="B" walking={false} facing={0} /></group>
-          <mesh position={[1.2, 0.23, -3.2]}><boxGeometry args={[1.6, 0.46, 0.5]} /><meshStandardMaterial color="#6b4a2a" /></mesh>
+          <mesh position={[1.2, 0.25, -3.2]}><boxGeometry args={[1.6, 0.5, 0.5]} /><meshStandardMaterial color="#6b4a2a" /></mesh>
           <group position={[0.8, 0, -3]}><RiggedPerson rig="A" seated facing={0} /></group>
           <group position={[1.6, 0, -3]}><RiggedPerson rig="B" seated facing={0} /></group>
+          {/* 실제 벤치 위 옆사람 자리(로맨스 x=1.05) + 높이 눈금 0.46/0.6/0.75 (빨강/초록/파랑) */}
+          <group position={[1.05, 0, 0.3]} rotation={[0, 0.6, 0]}><RiggedPerson rig="B" seated facing={Math.PI} /></group>
+          {[[0.5, "#ff3030"], [0.65, "#30ff30"], [0.8, "#3060ff"]].map(([y, c]) => (
+            <mesh key={y} position={[1.75, y, 0.3]}><boxGeometry args={[0.08, 0.02, 0.4]} /><meshStandardMaterial color={c} emissive={c} emissiveIntensity={0.6} /></mesh>
+          ))}
         </Suspense>
       )}
       {/* ---- 배우 ---- */}

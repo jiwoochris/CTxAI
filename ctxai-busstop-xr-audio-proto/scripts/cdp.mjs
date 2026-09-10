@@ -63,6 +63,18 @@ if (cmd === "open") {
   const r = await fetch(`${base}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
   const t = await r.json();
   console.log(t.id);
+} else if (cmd === "drag") {
+  // 마우스 드래그 (OrbitControls 로 고개 돌리기): drag <port> <targetId> x1 y1 x2 y2
+  const [targetId, x1, y1, x2, y2] = rest;
+  const c = await attach(targetId);
+  const steps = 12;
+  await c.send("Input.dispatchMouseEvent", { type: "mousePressed", x: +x1, y: +y1, button: "left", clickCount: 1 });
+  for (let i = 1; i <= steps; i++) {
+    await c.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: +x1 + ((+x2 - +x1) * i) / steps, y: +y1 + ((+y2 - +y1) * i) / steps, button: "left" });
+    await sleep(30);
+  }
+  await c.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: +x2, y: +y2, button: "left", clickCount: 1 });
+  c.close();
 } else if (cmd === "close") {
   await fetch(`${base}/json/close/${rest[0]}`);
 } else if (cmd === "eval") {
