@@ -13,7 +13,7 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
-import { Color, Vector3, FogExp2, BackSide, MathUtils } from "three";
+import { Color, Vector3, FogExp2, BackSide, MathUtils, CanvasTexture, SRGBColorSpace } from "three";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Cypress, RoundPine, Reeds, ForestRing, Shelter, Bench, Cafe } from "./BlockoutStage";
 import { deriveParams } from "@/lib/directionMap";
@@ -96,6 +96,41 @@ function RiggedPerson({ rig = "A", walking = false, scale = 1, facing = 0 }) {
     return () => { a.fadeOut(0.2); };
   }, [actions, walking]);
   return <primitive object={model} scale={scale} rotation={[0, facing, 0]} />;
+}
+
+// 정류장 이름 표지판 — 요청서 v5.0 §2.6 "관객이 말한 단어를 정류장 이름 자리에 실시간으로 써 넣는다".
+// 글자 값은 D5 그대로: 색 #F5F2E8, Pretendard Bold, 글자 높이 = 이름 자리 판 높이의 45%.
+function SignBoard({ text = "호수공원 입구", position = [-0.55, 2.02, -1.02] }) {
+  const texture = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const W = 1024, H = 256;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.fillStyle = "#16191d"; g.fillRect(0, 0, W, H);
+    g.fillStyle = "#2a2f36"; g.fillRect(0, H - 14, W, 14);
+    g.fillStyle = "#F5F2E8";
+    g.font = `bold ${Math.round(H * 0.45)}px Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(text, W / 2, H / 2 - 4);
+    g.font = `${Math.round(H * 0.13)}px Pretendard, "Apple SD Gothic Neo", sans-serif`;
+    g.fillStyle = "rgba(245,242,232,0.55)";
+    g.fillText("272", W - 90, H - 44);
+    const tx = new CanvasTexture(c); tx.colorSpace = SRGBColorSpace; tx.anisotropy = 4;
+    return tx;
+  }, [text]);
+  if (!texture) return null;
+  return (
+    <group position={position}>
+      <mesh>
+        <planeGeometry args={[0.8, 0.2]} />
+        <meshStandardMaterial map={texture} emissiveMap={texture} emissive="#ffffff" emissiveIntensity={0.35} />
+      </mesh>
+      <mesh position={[0, 0, -0.012]}>
+        <boxGeometry args={[0.84, 0.24, 0.02]} />
+        <meshStandardMaterial color="#22252b" />
+      </mesh>
+    </group>
+  );
 }
 
 function Truck({ x, z }) {
@@ -206,7 +241,7 @@ function Bus({ x, z, headlight, doorOpen }) {
  * @param {string|null} props.dominant                 앉는 인물 R/H/C
  * @param {React.MutableRefObject} [props.paramsOut]   파생 파라미터를 밖(HUD)에 노출
  */
-export default function ReactiveStage({ directionRef, actorsRef, dominant, paramsOut, useRig = true, rigTest = false }) {
+export default function ReactiveStage({ directionRef, actorsRef, dominant, paramsOut, useRig = true, rigTest = false, signText }) {
   const { scene, camera } = useThree();
   const skyMat = useRef();
   const sun = useRef();
@@ -360,6 +395,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       </mesh>
 
       <Shelter mood={{ neon: "#ff9a3d" }} />
+      <SignBoard text={signText || "호수공원 입구"} />
       <Bench />
       {/* 포스터 — Shelter 안의 것 위에 파닥이는 별도 면을 겹친다 */}
       <mesh ref={posterRef} position={[0.93, 1.25, -0.55]} rotation={[0, -Math.PI / 2, 0.06]}>

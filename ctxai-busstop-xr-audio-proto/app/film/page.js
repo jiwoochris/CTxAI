@@ -19,6 +19,8 @@
 //
 // URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기)
 //           ?pool=1 (대사 풀 모드 — 원문 46줄 대신 상태에 따라 보조 장르 변주를 줄마다 고른다. 목소리는 OpenRouter 합성)
+//           ?voice=1 (음성 채널 — 안내방송 뒤 "당신은 무엇을 기다리고 있습니까?"를 묻고 답을 STT·톤 분석해 증거로 넣고,
+//                     답에서 뽑은 명사를 정류장 이름 표지판에 쓴다. 요청서 v5.0 §2.6) · ?voicefake=romance (마이크 대신 샘플 파일)
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -33,6 +35,8 @@ import { CUES, T, evalActors } from "@/lib/filmTimeline";
 import { DIALOGUE_V2_LINES, DIALOGUE_V2_GENRE_LABEL } from "@/lib/dialogueV2Lines";
 import { observe, judgeFromBehavior } from "@/lib/behaviorSense";
 import { loadDialoguePool, pickPoolLine, poolCoverage } from "@/lib/dialoguePool";
+import { scoresFromMoodApi } from "@/lib/textKeywords";
+import { analyzeProsody } from "@/lib/voiceProsody";
 import s from "../story/story.module.css";
 import f from "./film.module.css";
 
@@ -130,6 +134,11 @@ export default function FilmPage() {
   const showHud = q.hud !== "0";
   const useRig = q.rig !== "0"; // ?rig=0 이면 리깅 캐릭터 대신 캡슐 실루엣
   const usePool = q.pool === "1"; // 대사 풀 모드 (lib/dialoguePool.js)
+  const voiceFake = q.voicefake || null; // public/samples/<name>.m4a 를 마이크 대신 쓴다 (점검용)
+  const useVoice = q.voice === "1" || !!voiceFake;
+  const [signText, setSignText] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState("off");
+  const micRef = useRef(null);
   // ?bias=H (또는 H:1.5) — 시작 시 그 장르 증거를 미리 넣어 배합을 기울인다. 발표·QA용:
   // 같은 장면을 강제 배합으로 비교해 볼 때 쓴다. 실제 관객 세션에서는 쓰지 않는다.
   const bias = useMemo(() => { const [g, w] = String(q.bias || "").split(":"); return ["R", "H", "C"].includes(g) ? { g, w: Number(w) || 1.2 } : null; }, [q.bias]);
@@ -242,6 +251,14 @@ export default function FilmPage() {
     setPhase("intro");
     ensureBgm();
 
+    setSignText("");
+    if (useVoice && !voiceFake) {
+      try {
+        micRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        setVoiceStatus("ready");
+      } catch { setVoiceStatus("denied"); }
+    } else if (voiceFake) setVoiceStatus("fake");
+
     if (useCam) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
@@ -270,7 +287,10 @@ export default function FilmPage() {
       d.setPhase("judged");
       setCaption("");
     }
-    if (cue.name === "announce") setCaption("272번 버스는 5분 후 도착 예정입니다");
+    if (cue.name === "announce") {
+      setCaption("272번 버스는 5분 후 도착 예정입니다");
+      if (useVoice) setTimeout(() => runVoiceFlow(), 3200);
+    }
     if (cue.name === "npcWalk") {
       setCaption("");
       if (film.dominant === "C") { playSfx("15", { volume: 0.6 }); }
@@ -279,6 +299,68 @@ export default function FilmPage() {
     }
     if (cue.name === "npcSeated") { playSfx(film.dominant === "C" ? "16" : "05", { volume: 0.6 }); }
     if (cue.name === "scene") { d.setPhase("scene"); setPhase("scene"); runScene(); }
+  }
+
+  // ---- 음성 채널 ----
+  function recordFor(ms) {
+    return new Promise((resolve) => {
+      const track = micRef.current?.getAudioTracks?.()[0];
+      if (!track) return resolve(null);
+      try {
+        const rec = new MediaRecorder(new MediaStream([track]));
+        const chunks = [];
+        rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+        rec.onstop = () => resolve(new Blob(chunks, { type: "audio/webm" }));
+        rec.start();
+        setTimeout(() => rec.stop(), ms);
+      } catch { resolve(null); }
+    });
+  }
+  async function captureAnswer(ms) {
+    if (voiceFake) {
+      try { return await (await fetch(`/samples/${encodeURIComponent(voiceFake)}.m4a`)).blob(); } catch { return null; }
+    }
+    return recordFor(ms);
+  }
+  async function scoreBlob(blob) {
+    if (!blob) return { textScores: null, voiceScores: null, transcript: "", noun: "" };
+    const [mood, prosody] = await Promise.all([
+      (async () => {
+        try {
+          const form = new FormData();
+          form.append("audio", blob, voiceFake ? "clip.m4a" : "clip.webm");
+          const res = await fetch("/api/mood", { method: "POST", body: form });
+          const data = await res.json();
+          return data?.ok ? data : null;
+        } catch { return null; }
+      })(),
+      analyzeProsody(blob).catch(() => null),
+    ]);
+    return { textScores: scoresFromMoodApi(mood?.scores), voiceScores: prosody?.scores || null, transcript: mood?.transcript || "", noun: mood?.noun || "" };
+  }
+  // 안내방송 뒤: Q1 → 답변(5초) → 애매하면 되묻기 1회 → 텍스트 0.9·톤 0.5 무게로 증거 → 표지판.
+  // 타임라인과 나란히 돈다 — 옆사람이 걸어오는 동안 세계가 묻고, 관객이 답하면 앉은 뒤의 장면이 그 답을 반영한다.
+  async function runVoiceFlow() {
+    const d = directionRef.current;
+    if (!d || abortRef.current.aborted) return;
+    setVoiceStatus("asking");
+    await playFile("vo_q1.mp3", 1);
+    setVoiceStatus("listening");
+    let out = await scoreBlob(await captureAnswer(5000));
+    if (!out.textScores && !abortRef.current.aborted) {
+      setVoiceStatus("reprompt");
+      await playFile("vo_filler1.mp3", 0.9);
+      await playFile("sfx_inhale.mp3", 0.8);
+      await playFile("vo_reprompt.mp3", 1);
+      setVoiceStatus("listening");
+      out = await scoreBlob(await captureAnswer(4000));
+    }
+    if (abortRef.current.aborted) return;
+    if (out.textScores) d.pushEvidence(out.textScores, 0.9, "voice:text", out.transcript.slice(0, 40));
+    if (out.voiceScores) d.pushEvidence(out.voiceScores, 0.5, "voice:tone");
+    if (out.noun) { setSignText(`${out.noun} 앞`); d.markEvent("sign", out.noun); }
+    d.markEvent("voice", { transcript: out.transcript, noun: out.noun });
+    setVoiceStatus(out.textScores ? "done" : "silent");
   }
 
   // 캐릭터 장면 — 대사는 이산(고정 46줄)이지만 간격·크기·보조 장르 콜백은 상태를 따른다.
@@ -359,6 +441,8 @@ export default function FilmPage() {
     for (const a of audioRef.current.values()) { a.pause(); }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    micRef.current?.getTracks().forEach((t) => t.stop());
+    micRef.current = null;
     setPhase("gate"); setHud(null); setLine(null); setCaption(""); setDominant(null); setCamStatus("off");
   }
 
@@ -405,7 +489,7 @@ export default function FilmPage() {
         <Canvas shadows>
           <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} />
+            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} />
             <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
           </XR>
           <OrbitControls target={[0, 1.15, -4]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={0.5} />
@@ -445,6 +529,8 @@ export default function FilmPage() {
             <span>정착 <b>{Math.round(snap.settled * 100)}%</b></span>
             <span>확신 <b>{Math.round(snap.confidence * 100)}%</b></span>
             <span>웹캠 <b>{camStatus}</b></span>
+            {useVoice && <span>음성 <b>{voiceStatus}</b></span>}
+            {signText && <span>표지판 <b>{signText}</b></span>}
             <span>거리 <b>{snap.params ? snap.params.npcDistance.toFixed(2) : "-"}m</b></span>
             <span>시선 <b>{snap.params ? Math.round(snap.params.npcGaze * 100) : "-"}%</b></span>
             <span>침묵 <b>{snap.params ? snap.params.npcSilence.toFixed(1) : "-"}s</b></span>

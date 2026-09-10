@@ -111,7 +111,7 @@ export async function POST(req) {
   // 2. 채점 — Claude Haiku, 4항목 점수 + 근거 한 줄을 JSON으로
   // (reason 필드: 정류장 판정 대시보드에서 "왜 이렇게 봤는지"를 그대로 보여주기 위함 —
   // Bus/규격/판정_기준.md §3 갱신, 키워드 사전 대신 이 근거를 씀)
-  const prompt = `다음 발화를 공포/로맨스/코미디/판타지 4가지 점수(0~1)로 평가해서 JSON만 출력해. 키는 반드시 horror, romance, comedy, fantasy, reason 다섯 개만 사용하고("reason"은 왜 이렇게 채점했는지 한국어 한 문장), 마크다운이나 설명 없이 순수 JSON 텍스트만 출력해.\n발화: ${transcript}`;
+  const prompt = `다음 발화를 공포/로맨스/코미디/판타지 4가지 점수(0~1)로 평가해서 JSON만 출력해. 키는 반드시 horror, romance, comedy, fantasy, reason, noun 여섯 개만 사용하고("reason"은 왜 이렇게 채점했는지 한국어 한 문장, "noun"은 화자가 기다리거나 말한 핵심 대상을 한국어 명사 1~3글자로 — 예: 친구, 버스, 엄마, 졸업 — 없으면 빈 문자열), 마크다운이나 설명 없이 순수 JSON 텍스트만 출력해.\n발화: ${transcript}`;
 
   let scores;
   let scoreReason = null;
@@ -144,6 +144,7 @@ export async function POST(req) {
     scores = {};
     for (const g of GENRES) scores[g] = clamp01(parsed[g]);
     scoreReason = typeof parsed.reason === "string" ? parsed.reason.slice(0, 200) : null;
+    var noun = typeof parsed.noun === "string" ? parsed.noun.replace(/[^가-힣a-zA-Z0-9]/g, "").slice(0, 6) : "";
   } catch (e) {
     return Response.json({ ok: false, reason: "llm_network", transcript }, { status: 200 });
   }
@@ -151,6 +152,7 @@ export async function POST(req) {
   return Response.json({
     ok: true,
     transcript,
+    noun: noun || "",
     scores,
     scoreReason,
     meta: { latencyMs: Date.now() - startedAt },
