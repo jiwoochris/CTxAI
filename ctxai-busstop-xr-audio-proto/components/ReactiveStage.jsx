@@ -147,7 +147,9 @@ export const SIT_POSE = {
 };
 const tmpV1 = new Vector3(), tmpV2 = new Vector3(), tmpQ = new Quaternion(), tmpE = new Euler();
 
-function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, facing = 0 }) {
+// lookRef: 연출 파라미터 ref — 앉은 상태에서 npcGaze(시선 접촉률)만큼 Head 뼈를 관객(카메라) 쪽으로 돌린다.
+// (실측: 이 리그들의 Head 뼈 로컬 y 가 좌우 yaw, x 가 갸웃, z 가 끄덕임)
+function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, facing = 0, lookRef = null }) {
   const { scene, animations } = useGLTF(RIG_URLS[rig] || RIG_URLS.A, false, true);
   const model = useMemo(() => {
     const c = skeletonClone(scene);
@@ -170,6 +172,16 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
   useFrame((state) => {
     if (!seated) { model.position.y = 0; rest.current = null; return; }
     const breath = Math.sin(state.clock.elapsedTime * 1.25) * 0.025; // 숨쉬기 — 척추가 살짝 펴졌다 굽는다
+    // 머리 look-at — 리그의 정면(+z) 방위와 머리→카메라 방위의 차를 시선 접촉률만큼
+    let headYaw = 0;
+    if (lookRef && bones.Head) {
+      const amt = lookRef.current?.npcGaze ?? 0.4;
+      model.getWorldDirection(tmpV1); const fwd = Math.atan2(tmpV1.x, tmpV1.z);
+      bones.Head.getWorldPosition(tmpV2);
+      const toCam = Math.atan2(state.camera.position.x - tmpV2.x, state.camera.position.z - tmpV2.z);
+      let d = toCam - fwd; d = Math.atan2(Math.sin(d), Math.cos(d));
+      headYaw = MathUtils.clamp(d, -1.2, 1.2) * amt;
+    }
     if (!rest.current) {
       const r = {}; for (const k in bones) r[k] = bones[k].quaternion.clone();
       model.updateMatrixWorld(true);
@@ -182,7 +194,8 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
       const b = bones[name], r = pose[name], q0 = rest.current.q[name];
       if (!b || !Array.isArray(r) || !q0) continue;
       const dz = name === "Spine" ? breath : name === "Head" ? -breath * 0.6 : 0;
-      tmpQ.setFromEuler(tmpE.set(r[0], r[1], r[2] + dz));
+      const dy = name === "Head" ? headYaw : 0;
+      tmpQ.setFromEuler(tmpE.set(r[0], r[1] + dy, r[2] + dz));
       b.quaternion.copy(q0).multiply(tmpQ);
     }
     model.position.y = pose.seatY - rest.current.hipY; // 골반이 좌면 높이에 오도록 내린다
@@ -1026,7 +1039,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
             <Suspense fallback={<Person raincoat={dominant !== "C"} tint={npcTint} head={npcHead} walking={actors.npc.walking} seated={actors.npc.seated} bob={actors.npc.bob} gazeRef={npcGaze} />}>
               {/* 시선 접촉률은 몸 전체가 관객 쪽으로 도는 정도로 나타낸다 — 착석 상태에선 관객(-x 쪽)을 향하는 각도가 -π/2 */}
               <group ref={npcGaze} position={[0, 1.55, 0]} />
-              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} seated={actors.npc.seated} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} />
+              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} seated={actors.npc.seated} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} lookRef={paramsOut} />
             </Suspense>
           ) : (
           <Person
