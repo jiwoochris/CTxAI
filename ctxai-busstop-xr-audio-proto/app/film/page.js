@@ -116,7 +116,7 @@ function TrajectoryChart({ trajectory, events }) {
         <g key={i}>
           <line x1={x(m.t)} x2={x(m.t)} y1={PAD} y2={H - PAD} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
           {/* 사건이 초반 1분에 몰려 있어 라벨을 위아래로 번갈아 놓는다 */}
-          <text x={x(m.t) + 3} y={PAD + 10 + (i % 3) * 11} fill="rgba(255,255,255,0.45)" fontSize="9">{m.detail?.name}</text>
+          <text x={x(m.t) + 3} y={PAD + 10 + (i % 3) * 11} fill="rgba(255,255,255,0.45)" fontSize="9">{EVENT_LABEL[m.detail?.name] || m.detail?.name}</text>
         </g>
       ))}
       <path d={path("R")} fill="none" stroke={GENRE_META.R.accent} strokeWidth="2" />
@@ -276,7 +276,7 @@ export default function FilmPage() {
     if (!d) return;
     if (cue.sfx) playSfx(cue.sfx, { volume: cue.volume ?? 0.8, loop: !!cue.loop });
     if (cue.slot) playFile(`${cue.slot}.mp3`, cue.volume ?? 1);
-    if (cue.sense) sensorRef.current?.beginEvent(cue.name, cue.sense.azimuth, cue.sense.dur / speed, { kind: cue.sense.kind });
+    if (cue.sense) sensorRef.current?.beginEvent(cue.name, cue.sense.azimuth, cue.sense.dur / speed, { kind: cue.sense.kind, tail: 4 / speed });
     d.markEvent("cue", cue.name);
 
     if (cue.name === "judge") {

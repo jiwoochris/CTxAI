@@ -53,12 +53,13 @@ export function createHeadPoseSensor({ push, mark }) {
    * @param {string} name
    * @param {number} azimuthDeg  사건 방향 (정면 0, 오른쪽 +)
    * @param {number} durationSec 사건 자체가 지속되는 시간
-   * @param {{kind: 'startle'|'track'|'probe'}} meta  물보라/고양이 = startle, 우비 인물 = track, 포스터/개구리 = probe
+   * @param {{kind: 'startle'|'track'|'probe', tail?: number}} meta  물보라/고양이 = startle, 우비 인물 = track, 포스터/개구리 = probe.
+   *   tail = 사건이 끝난 뒤 회복·재확인을 더 지켜보는 시간(초, 기본 4). 배속 데모에서는 1/speed 로 줄여 넘긴다.
    */
   function beginEvent(name, azimuthDeg, durationSec, meta = {}) {
     active.set(name, {
       name, azimuth: azimuthDeg, kind: meta.kind || "probe",
-      start: t, end: t + durationSec, observeUntil: t + durationSec + 4,
+      start: t, end: t + durationSec, observeUntil: t + durationSec + (meta.tail ?? 4),
       looked: false, lookLatency: null, lookSec: 0, lookedAgainAfterEnd: false,
       maxVel: 0, retreat: 0, recoverySec: null, leftLookAt: null, everLeft: false,
       yawAtStart: prev?.yaw ?? 0,
