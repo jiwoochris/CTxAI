@@ -150,7 +150,10 @@ export function createHeadPoseSensor({ push, mark }) {
         const s = scoreEvent(ev);
         active.delete(ev.name);
         done.push({ name: ev.name, ...s });
-        const w = ev.kind === "startle" ? 1.0 : 0.8;
+        // 보지 않은 사건은 "반응 없음"이라는 약한 증거다(0.25). 봤을 때의 채점(1.0/0.8)보다 훨씬
+        // 가볍게 둬야, 사건 두어 개에 분명히 반응한 관객이 나머지 사건을 안 봤다는 이유로
+        // 로맨스로 뒤집히지 않는다 (실측: 안 본 사건 6개 = 순수 로맨스 4.8 무게로 강제 배합 4를 눌렀다).
+        const w = !ev.looked ? 0.25 : ev.kind === "startle" ? 1.0 : 0.8;
         push({ R: s.R, H: s.H, C: s.C }, w, "headpose:event", ev.name);
         mark?.("event:scored", { name: ev.name, scores: { R: s.R, H: s.H, C: s.C }, feats: s.feats });
       }
