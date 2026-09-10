@@ -110,7 +110,7 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
 // 데스크톱 자동 시선 — 헤드셋에서는 관객이 직접 고개를 돌리지만, 화면 데모에서는 아무도 드래그하지 않으면
 // 옆사람이 앉은 뒤 카메라가 옆사람 쪽(오른쪽 약 60°)으로 천천히 돌아가고, 버스가 오면 정면으로 돌아온다.
 // 드래그하면 8초 동안 손을 뗀다. 자동으로 도는 동안은 "사람에 대한 관심" 측정을 끈다(film.autoGaze).
-const AUTO_GAZE_NPC = 1.3, AUTO_GAZE_BUS = 0.12, AUTO_GAZE_PITCH = -0.14; // 실측: 77° 오른쪽·약간 아래가 옆사람 얼굴이 가운데 오는 각
+const AUTO_GAZE_NPC = 1.3, AUTO_GAZE_BUS = 0.22, AUTO_GAZE_PITCH = -0.14; // 실측: 77° 오른쪽·약간 아래가 옆사람 얼굴이 가운데 오는 각
 function DesktopGaze({ controlsRef, actorsRef, filmRef }) {
   const session = useXR((xr) => xr.session);
   const manualUntil = useRef(0);

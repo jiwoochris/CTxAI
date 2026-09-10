@@ -49,6 +49,7 @@ function seg(t, a, b) { return smooth((t - a) / (b - a)); }
 // 도로: 가까운 차선 중심 z=-4.75, 건너편 차선 중심 z=-15.25 (연석 -3 / 중앙선 -10 / 건너편 연석 -17).
 // 카페 (-19,-26) · 횡단보도 x=-5 · 공원 입구 숲 +x 쪽 · 풀숲 뒤 z>2.
 function heading(dx, dz) { return Math.atan2(dx, dz); } // 모델 정면(+z)이 진행 방향을 보게 하는 yaw
+const BUS_STOP_X = -1.2; // 정차 시 차체 중심. 앞문은 +2.4 → x≈1.2
 
 export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null } = {}) {
   const a = {};
@@ -103,21 +104,22 @@ export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null
     }
   } else a.npc = { visible: false };
 
-  // 272번 버스 — 왼쪽 커브 너머(v1.1)에서 가까운 차선으로 와서 정류장 앞(x≈1.2)에 선다. 문이 열리고 인물이 떠난다.
+  // 272번 버스 — 왼쪽 커브 너머(v1.1)에서 가까운 차선으로 와서 정류장 앞에 선다. 차체 중심 x=−1.2 에 서면
+  // 앞문(차체 앞쪽 2.4m)이 관객 정면 오른쪽 x≈1.2 에 온다. 문이 열리고 인물이 떠난다.
   if (busAt != null && t >= busAt) {
     const p = seg(t, busAt, busAt + 7);
-    const x = lerp(-48, 1.2, p);
+    const x = lerp(-48, BUS_STOP_X, p);
     const stopped = t >= busAt + 7;
     a.bus = { visible: true, x, z: -4.75, stopped, doorOpen: stopped, headlight: 1 - p * 0.4 };
     // 인물 퇴장 — 공포: 벤치 뒤 풀숲으로 / 로맨스·코미디: 버스 문 앞(1.2,-2.6)으로. 정차는 9초(문 열림 1초 뒤 일어선다)
     if (stopped && a.npc.visible) {
       const q = seg(t, busAt + 8, busAt + 14);
       if (dominant === "H") a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.6, q), z: lerp(0.3, 3.6, q), yaw: heading(0.5, 3.3), bob: t, visible: q < 1 };
-      else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.2, q), z: lerp(0.3, -2.6, q), yaw: heading(0.2, -2.9), bob: t, visible: q < 0.98 };
+      else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, BUS_STOP_X + 2.4, q), z: lerp(0.3, -2.7, q), yaw: heading(BUS_STOP_X + 2.4 - a.npc.x, -3.0), bob: t, visible: q < 0.98 };
     }
     a.bus.doorOpen = stopped && t < busAt + 16;
     a.busLeaving = t >= busAt + 16 ? seg(t, busAt + 16, busAt + 22) : 0;
-    if (a.busLeaving > 0) a.bus.x = lerp(1.2, 50, a.busLeaving);
+    if (a.busLeaving > 0) a.bus.x = lerp(BUS_STOP_X, 50, a.busLeaving);
     a.fade = t >= busAt + 19 ? seg(t, busAt + 19, busAt + 23) : 0;
   } else { a.bus = { visible: false }; a.busLeaving = 0; a.fade = 0; }
 

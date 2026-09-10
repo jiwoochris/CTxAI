@@ -818,6 +818,8 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
             <meshStandardMaterial color="#ff9a3d" emissive="#ff9a3d" emissiveIntensity={1.4} />
           </mesh>
         ))}
+        {/* 지붕 아래 온광 — 네온 띠가 실제로 벤치·얼굴을 비춘다 (지붕 그림자 아래가 새까맣던 것) */}
+        <pointLight position={[0.6, 2.2, 0.0]} color="#ffb877" intensity={0.9} distance={5} decay={2} />
         {/* 기둥 4개 (뒤 2, 앞 2) */}
         {[[-0.95, 1.15], [2.15, 1.15], [-0.95, -0.95], [2.15, -0.95]].map(([x, z], i) => (
           <mesh key={i} position={[x, 1.19, z]} castShadow>
