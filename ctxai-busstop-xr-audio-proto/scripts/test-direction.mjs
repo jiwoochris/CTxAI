@@ -45,11 +45,12 @@ test("BGM 게인 — 상위 2개만, settled 0 이면 셋이 고르게", () => {
 test("상태 저장소 — 증거가 쌓이면 target 이 기울고 current 는 완만히 따라간다", () => {
   const d = createDirectionState({ followRate: 0.6, settleMass: 2 });
   d.pushEvidence({ R: 0, H: 1, C: 0 }, 1, "test");
-  assert.ok(d.st.target.H > 0.99);
+  // 균등 사전분포(0.8)가 깔려 있어 증거 1.0 으로는 약 0.7 — 한 방에 100% 가 되면 안 된다
+  assert.ok(d.st.target.H > 0.6 && d.st.target.H < 0.8, `target.H=${d.st.target.H}`);
   d.tick(0.1);
   assert.ok(d.st.current.H < 0.5, "한 프레임에 다 따라가면 떨림 방지가 없는 것");
   for (let i = 0; i < 100; i++) d.tick(0.1);
-  assert.ok(d.st.current.H > 0.95); assert.ok(d.st.settled > 0.45 && d.st.settled < 0.6, `settled=${d.st.settled}`);
+  assert.ok(d.st.current.H > 0.6); assert.ok(d.st.settled > 0.45 && d.st.settled < 0.6, `settled=${d.st.settled}`);
   assert.equal(rank(d.st.current).dominant, "H");
   assert.ok(d.st.trajectory.length >= 15);
 });

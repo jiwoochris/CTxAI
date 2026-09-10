@@ -13,7 +13,7 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree, useLoader } from "@react-three/fiber";
 import { useGLTF, useAnimations, MeshReflectorMaterial } from "@react-three/drei";
-import { Color, Vector3, FogExp2, BackSide, MathUtils, CanvasTexture, SRGBColorSpace, PMREMGenerator, TextureLoader, RepeatWrapping } from "three";
+import { Color, Vector3, Quaternion, Euler, FogExp2, BackSide, MathUtils, CanvasTexture, SRGBColorSpace, PMREMGenerator, TextureLoader, RepeatWrapping } from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Cypress, RoundPine, Reeds, ForestRing, Shelter, Bench, Cafe } from "./BlockoutStage";
@@ -131,22 +131,60 @@ function Hood({ color = "#3f4a58", y = 1.58, scale = 1 }) {
   );
 }
 
-function RiggedPerson({ rig = "A", walking = false, scale = 1, facing = 0 }) {
+// 임시 리그(Meshy)는 걷기 클립 하나뿐이다. 앉은 자세는 정지 프레임 위에 다리·팔·척추 뼈의 상대 회전을 얹어 만든다
+// (뼈의 휴지 자세 쿼터니언 × 추가 회전 — 절대값을 넣으면 리그마다 다른 휴지 방향이 깨진다).
+// 뼈 이름은 Mixamo 규약(Hips/Spine/LeftUpLeg/LeftLeg/LeftArm…)이라 Mixamo 인물로 바꿔도 그대로 쓴다.
+// 값은 라디안(뼈 로컬 x,y,z). window.__sit 으로 실행 중에 덮어써 볼 수 있다(?rigtest=1 점검용).
+// (실측: 이 리그들은 뼈 로컬 z 가 앞뒤 굽힘이다 — 허벅지 +z 앞으로, 무릎 -z 로 정강이를 내린다.)
+export const SIT_POSE = {
+  LeftUpLeg: [0, 0, 1.45], RightUpLeg: [0, 0, 1.45],
+  LeftLeg: [0, 0, -1.5], RightLeg: [0, 0, -1.5],
+  LeftFoot: [0, 0, 0.15], RightFoot: [0, 0, 0.15],
+  LeftArm: [0, 0, 0], RightArm: [0, 0, 0],
+  LeftForeArm: [0, 0, -0.35], RightForeArm: [0, 0, -0.35],
+  Spine: [0, 0, 0.08], Head: [0, 0, -0.05],
+  seatY: 0.46, // 골반 높이(벤치 좌면)
+};
+const tmpV1 = new Vector3(), tmpV2 = new Vector3(), tmpQ = new Quaternion(), tmpE = new Euler();
+
+function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, facing = 0 }) {
   const { scene, animations } = useGLTF(RIG_URLS[rig] || RIG_URLS.A, false, true);
   const model = useMemo(() => {
     const c = skeletonClone(scene);
     c.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
     return c;
   }, [scene]);
+  const bones = useMemo(() => { const b = {}; model.traverse((o) => { if (o.isBone) b[o.name] = o; }); return b; }, [model]);
+  const rest = useRef(null); // 앉기 시작한 프레임의 뼈 쿼터니언(믹서가 쓴 정지 프레임)
   const { actions } = useAnimations(animations, model);
   useEffect(() => {
     const name = Object.keys(actions)[0];
     const a = name ? actions[name] : null;
     if (!a) return;
-    if (walking) { a.paused = false; a.reset().fadeIn(0.2).play(); }
-    else { a.play(); a.paused = true; a.time = 0.35; }
+    if (walking && !seated) { a.paused = false; a.reset().fadeIn(0.2).play(); }
+    else { a.play(); a.paused = true; a.time = 0.35; } // 0.35s: 두 다리가 모이는 프레임 — 서 있기·앉기의 바탕
+    rest.current = null;
     return () => { a.fadeOut(0.2); };
-  }, [actions, walking]);
+  }, [actions, walking, seated]);
+  // useAnimations 의 useFrame(믹서 갱신)이 먼저 돌고 이 콜백이 돈다 — 정지 프레임 위에 앉은 자세를 얹는다
+  useFrame(() => {
+    if (!seated) { model.position.y = 0; rest.current = null; return; }
+    if (!rest.current) {
+      const r = {}; for (const k in bones) r[k] = bones[k].quaternion.clone();
+      model.updateMatrixWorld(true);
+      const hips = bones.Hips; let hipY = 0.9;
+      if (hips) { hips.getWorldPosition(tmpV1); model.getWorldPosition(tmpV2); hipY = tmpV1.y - tmpV2.y; }
+      rest.current = { q: r, hipY };
+    }
+    const pose = (typeof window !== "undefined" && window.__sit) ? { ...SIT_POSE, ...window.__sit } : SIT_POSE;
+    for (const name in pose) {
+      const b = bones[name], r = pose[name], q0 = rest.current.q[name];
+      if (!b || !Array.isArray(r) || !q0) continue;
+      tmpQ.setFromEuler(tmpE.set(r[0], r[1], r[2]));
+      b.quaternion.copy(q0).multiply(tmpQ);
+    }
+    model.position.y = pose.seatY - rest.current.hipY; // 골반이 좌면 높이에 오도록 내린다
+  });
   return <primitive object={model} scale={scale} rotation={[0, facing, 0]} />;
 }
 
@@ -219,10 +257,10 @@ function usePbr(id, repeat) {
 }
 
 function RoadSurface({ roadMat, reflect }) {
-  const tex = usePbr("asphalt_02", [3, 15]);
+  const tex = usePbr("asphalt_02", [16, 3.2]);
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.4, 0, -10]} receiveShadow>
-      <planeGeometry args={[8, 40]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -10]} receiveShadow>
+      <planeGeometry args={[70, 14]} />
       {reflect ? (
         <MeshReflectorMaterial
           ref={roadMat} {...tex} color="#8a8d92" roughness={0.6} metalness={0.15} normalScale={[0.5, 0.5]}
@@ -255,25 +293,28 @@ function RealTree({ kind = "fir", position, scale = 5, yaw = 0 }) {
   const url = kind === "fir" ? "/reactive/models/props/fir_sapling.glb" : "/reactive/models/props/pine_sapling_small.glb";
   return <Prop url={url} only={kind === "fir" ? FIR_RE : PINE_RE} position={position} rotation={[0, yaw, 0]} scale={scale} />;
 }
-function RealForest({ radius = 13, count = 22 }) {
-  const trees = useMemo(() => Array.from({ length: count }, (_, i) => {
-    const angle = (i / count) * Math.PI * 2;
-    const r = radius + ((i * 37) % 7) * 0.5;
-    return { x: Math.sin(angle) * r, z: -Math.cos(angle) * r, kind: i % 3 === 0 ? "pine" : "fir", scale: 4.6 + ((i * 13) % 5) * 0.45, yaw: (i * 1.7) % (Math.PI * 2) };
-  }), [radius, count]);
-  // 근거리 나무는 관객의 시야를 가리지 않게 정류장에서 3m 이상 떨어뜨린다 (가지 끝이 얼굴에 닿지 않도록).
-  const side = [
-    [7.6, -2.6, 5.2, "fir"], [8.2, -4.8, 5.8, "pine"], [7.6, -7.0, 4.9, "fir"], [8.4, -9.6, 6.4, "fir"], [7.9, -12.4, 5.5, "pine"], [8.6, -15.8, 6.8, "fir"],
-    [-3.6, -2.0, 4.4, "fir"], [-4.2, -4.6, 5.0, "pine"], [-3.4, -7.4, 5.6, "fir"],
-    [-3.8, 5.2, 4.2, "pine"], [-1.0, 6.0, 4.6, "fir"], [1.8, 5.4, 4.3, "fir"], [4.4, 6.0, 4.8, "pine"],
-    [7.4, -5.9, 3.6, "pine"], [8.0, -10.8, 4.0, "pine"],
-  ];
-  return (
-    <>
-      {trees.map((t, i) => <RealTree key={`r${i}`} kind={t.kind} position={[t.x, 0, t.z]} scale={t.scale} yaw={t.yaw} />)}
-      {side.map(([x, z, s, k], i) => <RealTree key={`s${i}`} kind={k} position={[x, 0, z]} scale={s} yaw={(i * 2.3) % 6.28} />)}
-    </>
-  );
+function RealForest() {
+  // 3D_배경_구성_기획.md §4 의 방위: 정면(0°) 도로 건너편은 침엽수림, 오른쪽(+60°)이 공원 입구 숲,
+  // 왼쪽 건너편(-38°)은 카페가 보여야 하므로 그 앞은 비운다. 뒤(180°)는 풀숲 너머 드문 나무.
+  const trees = useMemo(() => {
+    const out = [];
+    let i = 0;
+    const put = (x, z, s, kind) => out.push({ x, z, scale: s, kind, yaw: (i++ * 1.7) % (Math.PI * 2) });
+    // 건너편 먼 줄 (z -19 ~ -27), 카페 앞(x -24 ~ -13)은 비움
+    for (let x = -40; x <= 40; x += 4.2) {
+      if (x > -24 && x < -13) continue;
+      const j = ((x * 7) % 5 + 5) % 5;
+      put(x + (j - 2) * 0.6, -19.5 - j * 1.6, 4.8 + (j % 3) * 0.7, j % 3 === 0 ? "pine" : "fir");
+    }
+    // 오른쪽 공원 입구 숲 (x 7.5 ~ 17, z -2 ~ -16)
+    [[8, -3.5, 5.2], [10.5, -7, 5.8], [8.5, -10.5, 4.9], [12, -13.5, 6.2], [14.5, -5, 5.4], [16.5, -10, 6.0], [13, -1.5, 4.6]].forEach(([x, z, s], k) => put(x, z, s, k % 3 === 1 ? "pine" : "fir"));
+    // 왼쪽 (x -8 ~ -16, z -2 ~ -14) — 카페 시선(-38°)은 피한다
+    [[-8.5, -2.5, 4.8], [-11, -6.5, 5.6], [-9.5, -12, 5.0], [-15, -3.5, 5.8], [-16, -9, 5.2]].forEach(([x, z, s], k) => put(x, z, s, k % 2 ? "pine" : "fir"));
+    // 뒤 (z 4.5 ~ 9)
+    [[-9, 5.5, 4.4], [-4, 7.5, 5.0], [1.5, 6.5, 4.6], [6, 8, 5.2], [11, 5.5, 4.8]].forEach(([x, z, s], k) => put(x, z, s, k % 2 ? "fir" : "pine"));
+    return out;
+  }, []);
+  return <>{trees.map((t, i) => <RealTree key={i} kind={t.kind} position={[t.x, 0, t.z]} scale={t.scale} yaw={t.yaw} />)}</>;
 }
 
 // HDRI 로더 — 세 장을 한 번에 읽고, PMREM(환경광 맵)도 만들어 부모에게 넘긴다.
@@ -338,6 +379,23 @@ function Truck({ x, z }) {
         <boxGeometry args={[1.5, 0.7, 0.02]} />
         <meshPhysicalMaterial color="#9fc3e6" metalness={0.2} roughness={0.05} transparent opacity={0.7} />
       </mesh>
+      {/* 옆창(양쪽) · 문 이음선 · 사이드미러 — 관객은 옆면을 본다 */}
+      {[-0.86, 0.86].map((dx) => (
+        <group key={dx}>
+          <mesh position={[dx, 1.32, 1.3]}>
+            <boxGeometry args={[0.02, 0.55, 0.95]} />
+            <meshPhysicalMaterial color="#3a4a5c" metalness={0.6} roughness={0.05} transparent opacity={0.85} />
+          </mesh>
+          <mesh position={[dx, 0.85, 0.85]}>
+            <boxGeometry args={[0.025, 1.0, 0.015]} />
+            <meshStandardMaterial color="#8a9096" />
+          </mesh>
+          <mesh position={[dx * 1.12, 1.35, 2.0]}>
+            <boxGeometry args={[0.16, 0.2, 0.06]} />
+            <meshStandardMaterial color="#1e2126" />
+          </mesh>
+        </group>
+      ))}
       {/* 적재함 — 파란 방수포 */}
       <mesh position={[0, 0.62, -0.75]} castShadow>
         <boxGeometry args={[1.75, 0.35, 2.7]} />
@@ -381,7 +439,7 @@ function Splash({ p }) {
   const spread = p * 1.4;
   const yArc = Math.sin(Math.min(1, p) * Math.PI) * 0.9;
   return (
-    <group position={[1.0, 0.05, -0.6]}>
+    <group position={[0.6, 0.05, -3.4]}>
       {drops.map((d, i) => (
         <mesh key={i} position={[-Math.sin(d.a) * spread * d.s, yArc * d.s, -Math.cos(d.a) * spread * d.s * 0.4]}>
           <sphereGeometry args={[0.035 * (1 - p * 0.5), 6, 6]} />
@@ -393,7 +451,7 @@ function Splash({ p }) {
 }
 
 function Cat({ x, z, running, facingBench, bob }) {
-  const rot = facingBench ? Math.PI * 0.8 : running && x > 0.9 ? -Math.PI / 2 - 0.4 : Math.PI / 2 + 0.2;
+  const rot = facingBench ? 0.2 : -Math.PI / 2;
   const y = running ? Math.abs(Math.sin(bob * 14)) * 0.06 : 0;
   return (
     <group position={[x, y, z]} rotation={[0, rot, 0]}>
@@ -438,23 +496,56 @@ function Bus({ x, z, headlight, doorOpen }) {
         <boxGeometry args={[2.3, 0.14, 10.0]} />
         <meshStandardMaterial color="#d9dee3" metalness={0.3} roughness={0.5} />
       </mesh>
-      {/* 창 띠 (양쪽) — 실내 온광이 비친다 */}
+      {/* 창 띠 (양쪽) — 어두운 반사 유리에 실내 온광이 약하게 비치고, 창틀 기둥이 1.3m 마다 선다 */}
       {[-1.22, 1.22].map((dx) => (
-        <mesh key={dx} position={[dx, 2.1, 0]}>
-          <boxGeometry args={[0.02, 0.95, 9.4]} />
-          <meshPhysicalMaterial color="#9fc3e6" emissive="#ffe0b0" emissiveIntensity={0.45} metalness={0.2} roughness={0.05} transparent opacity={0.75} />
-        </mesh>
+        <group key={dx}>
+          <mesh position={[dx, 2.1, 0]}>
+            <boxGeometry args={[0.02, 0.95, 9.4]} />
+            <meshPhysicalMaterial color="#5b7a99" emissive="#ffd9a0" emissiveIntensity={0.12} metalness={0.7} roughness={0.04} transparent opacity={0.82} />
+          </mesh>
+          {[-3.9, -2.6, -1.3, 0, 1.3, 2.6, 3.9].map((dz) => (
+            <mesh key={dz} position={[dx, 2.1, dz]}>
+              <boxGeometry args={[0.03, 1.0, 0.06]} />
+              <meshStandardMaterial color="#1c2430" metalness={0.5} roughness={0.5} />
+            </mesh>
+          ))}
+          <mesh position={[dx, 1.62, 0]}>
+            <boxGeometry args={[0.03, 0.04, 9.6]} />
+            <meshStandardMaterial color="#d9dee3" metalness={0.3} roughness={0.5} />
+          </mesh>
+        </group>
       ))}
+      {/* 옆 행선지판 (관객 쪽) */}
+      <mesh position={[-1.24, 1.2, -0.6]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[1.1, 0.26]} />
+        <meshStandardMaterial color="#f2f4f6" emissive="#f2f4f6" emissiveIntensity={0.25} />
+      </mesh>
       {/* 앞유리 */}
       <mesh position={[0, 2.05, 5.21]}>
         <boxGeometry args={[2.1, 1.1, 0.02]} />
         <meshPhysicalMaterial color="#9fc3e6" metalness={0.2} roughness={0.05} transparent opacity={0.7} />
       </mesh>
-      {/* 문 (관객 쪽, 왼쪽면) — 열리면 안쪽으로 접힌 것처럼 얇아진다 */}
-      <mesh position={[-1.23, 1.15, 2.4]}>
-        <boxGeometry args={[0.04, 2.0, doorOpen ? 0.12 : 1.1]} />
-        <meshStandardMaterial color="#1a2735" metalness={0.4} roughness={0.5} />
-      </mesh>
+      {/* 문 (관객 쪽, 왼쪽면) — 유리 두 짝, 열리면 안쪽으로 접힌 것처럼 얇아진다. 열린 문 안쪽엔 실내 불빛 */}
+      {[2.12, 2.68].map((dz, i) => (
+        <group key={dz} position={[-1.23, 1.15, dz]}>
+          <mesh>
+            <boxGeometry args={[0.04, 2.0, doorOpen ? 0.1 : 0.52]} />
+            <meshStandardMaterial color="#1a2735" metalness={0.4} roughness={0.5} />
+          </mesh>
+          {!doorOpen && (
+            <mesh position={[-0.021, 0.35, 0]}>
+              <boxGeometry args={[0.005, 1.0, 0.4]} />
+              <meshPhysicalMaterial color="#5b7a99" metalness={0.7} roughness={0.04} transparent opacity={0.8} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {doorOpen && (
+        <mesh position={[-1.1, 1.1, 2.4]} rotation={[0, -Math.PI / 2, 0]}>
+          <planeGeometry args={[1.0, 2.0]} />
+          <meshStandardMaterial color="#ffe6c2" emissive="#ffd9a0" emissiveIntensity={0.9} />
+        </mesh>
+      )}
       {/* 바퀴 */}
       {[[-1.05, -3.2], [1.05, -3.2], [-1.05, 3.3], [1.05, 3.3]].map(([dx, dz], i) => (
         <group key={i} position={[dx, 0.48, dz]} rotation={[0, 0, Math.PI / 2]}>
@@ -623,130 +714,179 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
         shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-camera-near={1} shadow-camera-far={40}
       />
 
-      {/* 도로 — 색·광택이 상태를 따른다 (로맨스 "젖은 도로 전체가 금빛으로"). 아스팔트 텍스처 + 반사 */}
+      {/* ================= 지형 — 스크립트 v2 §1 / 3D_배경_구성_기획 §4 =================
+          관객은 벤치(원점)에 앉아 -z 를 본다. 도로는 정면에서 좌우(x)로 지나간다:
+          가까운 연석 z=-3, 중앙선 z=-10, 건너편 연석 z=-17. 카페는 도로 건너 왼쪽(-38°),
+          숲은 오른쪽(+60°)과 건너편, 풀숲은 뒤(180°). 지형은 장르와 무관하게 고정이다. */}
       <Suspense fallback={null}><Ground /></Suspense>
       <Suspense fallback={(
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.4, 0, -10]} receiveShadow>
-          <planeGeometry args={[8, 40]} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -10]} receiveShadow>
+          <planeGeometry args={[70, 14]} />
           <meshStandardMaterial ref={roadMat} color="#3f4247" roughness={0.6} metalness={0.15} />
         </mesh>
       )}>
         <RoadSurface roadMat={roadMat} reflect={reflect} />
       </Suspense>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.6, 0.01, -6]} receiveShadow>
-        <planeGeometry args={[2.2, 20]} />
-        <meshStandardMaterial color="#5c5c58" />
+      {/* 인도(정류장 앞)와 연석 */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -1.3]} receiveShadow>
+        <planeGeometry args={[44, 3.4]} />
+        <meshStandardMaterial color="#5a5b57" roughness={0.95} />
       </mesh>
-      {[-0.06, 0.06].map((dx) => (
-        <mesh key={dx} rotation={[-Math.PI / 2, 0, 0]} position={[2.4 + dx, 0.015, -12]}>
-          <planeGeometry args={[0.04, 34]} />
+      <mesh position={[0, 0.06, -3.0]} receiveShadow>
+        <boxGeometry args={[44, 0.12, 0.18]} />
+        <meshStandardMaterial color="#8a8c88" roughness={0.9} />
+      </mesh>
+      {/* 건너편 인도 */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -18.2]} receiveShadow>
+        <planeGeometry args={[70, 2.4]} />
+        <meshStandardMaterial color="#5a5b57" roughness={0.95} />
+      </mesh>
+      {/* 중앙 이중 황색선 · 차선 점선 */}
+      {[-0.07, 0.07].map((dz) => (
+        <mesh key={dz} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, -10 + dz]}>
+          <planeGeometry args={[70, 0.05]} />
           <meshStandardMaterial color="#e0b840" />
         </mesh>
       ))}
-      {[0.35, 4.45].map((laneX) =>
-        Array.from({ length: 10 }, (_, i) => (
-          <mesh key={`${laneX}-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[laneX, 0.015, -1.5 - i * 2.2]}>
-            <planeGeometry args={[0.08, 1.1]} />
+      {[-6.5, -13.5].map((z) =>
+        Array.from({ length: 16 }, (_, i) => (
+          <mesh key={`${z}-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[-33 + i * 4.4, 0.015, z]}>
+            <planeGeometry args={[1.6, 0.09]} />
             <meshStandardMaterial color="#d8d8d0" />
           </mesh>
         ))
       )}
-      {/* 횡단보도 — 신호등 없는 (v1.1) */}
-      {Array.from({ length: 7 }, (_, i) => (
-        <mesh key={`cw${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[-1.2 + i * 1.2, 0.016, -4.2]}>
-          <planeGeometry args={[0.5, 1.6]} />
+      {/* 횡단보도 — 정류장 왼쪽 x≈-5, 신호등 없음(v1.1). 줄무늬는 도로 방향으로 길고 z 로 쌓인다 */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <mesh key={`cw${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[-5, 0.016, -3.9 - i * 1.7]}>
+          <planeGeometry args={[2.4, 0.62]} />
           <meshStandardMaterial color="#cfcfc6" />
         </mesh>
       ))}
-      {/* 물웅덩이 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.0, 0.012, -0.8]}>
-        <circleGeometry args={[0.7, 16]} />
-        <meshPhysicalMaterial color="#5a6670" roughness={0.05} metalness={0.4} transparent opacity={0.75} />
+      {/* 물웅덩이 — 연석 바로 앞(트럭이 밟는 자리) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, 0.012, -3.9]} scale={[1.4, 0.55, 1]}>
+        <circleGeometry args={[0.7, 18]} />
+        <meshPhysicalMaterial color="#3d4650" roughness={0.03} metalness={0.5} transparent opacity={0.45} />
       </mesh>
 
-      <Shelter mood={{ neon: "#ff9a3d" }} />
-      <SignBoard text={signText || "호수공원 입구"} />
+      {/* ================= 정류장 — 등 뒤가 유리, 앞은 도로로 열림 =================
+          폭 3.2m (x −1.0…2.2): 관객은 벤치 왼쪽(x=0), 옆사람은 오른쪽(x 1.05~1.7)에 앉으므로 오른쪽으로 넓다 */}
+      <group>
+        {/* 지붕 + 네온 띠 */}
+        <mesh position={[0.6, 2.38, 0.15]} rotation={[0.03, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[3.2, 0.08, 2.3]} />
+          <meshStandardMaterial color="#4a3222" roughness={0.8} />
+        </mesh>
+        {[-0.6, 0.5].map((z) => (
+          <mesh key={z} position={[0.6, 2.335, z]}>
+            <boxGeometry args={[3.0, 0.015, 0.03]} />
+            <meshStandardMaterial color="#ff9a3d" emissive="#ff9a3d" emissiveIntensity={1.4} />
+          </mesh>
+        ))}
+        {/* 기둥 4개 (뒤 2, 앞 2) */}
+        {[[-0.95, 1.15], [2.15, 1.15], [-0.95, -0.95], [2.15, -0.95]].map(([x, z], i) => (
+          <mesh key={i} position={[x, 1.19, z]} castShadow>
+            <cylinderGeometry args={[0.045, 0.05, 2.38, 10]} />
+            <meshStandardMaterial color="#22242a" metalness={0.6} roughness={0.45} />
+          </mesh>
+        ))}
+        {/* 뒤 유리(벤치 뒤) · 양옆 유리 */}
+        <mesh position={[0.6, 1.15, 1.17]}>
+          <boxGeometry args={[3.1, 2.1, 0.02]} />
+          <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.22} roughness={0.08} metalness={0.1} />
+        </mesh>
+        {[-0.96, 2.16].map((x) => (
+          <mesh key={x} position={[x, 1.15, 0.1]}>
+            <boxGeometry args={[0.02, 2.1, 2.1]} />
+            <meshPhysicalMaterial color="#bcd4e0" transparent opacity={0.22} roughness={0.08} metalness={0.1} />
+          </mesh>
+        ))}
+      </group>
+      {/* 정류장 이름 표지판 — 앞 왼쪽 기둥 옆 폴, 관객을 향한다 */}
+      <mesh position={[-0.95, 1.05, -2.0]} castShadow>
+        <cylinderGeometry args={[0.03, 0.035, 2.1, 8]} />
+        <meshStandardMaterial color="#33363c" />
+      </mesh>
+      <SignBoard text={signText || "호수공원 입구"} position={[-0.95, 1.78, -1.9]} />
       <Suspense fallback={<Bench />}>
-        <Prop url="/reactive/models/props/painted_wooden_bench.glb" scale={1.2} position={[0, 0, 0.42]} rotation={[0, benchYaw, 0]} />
-        <Prop url="/reactive/models/props/metal_trash_can.glb" position={[1.35, 0, -0.9]} />
-        <Prop url="/reactive/models/props/shrub_02.glb" position={[-1.0, 0, 2.2]} />
-        <Prop url="/reactive/models/props/shrub_02.glb" position={[5.2, 0, -3.0]} rotation={[0, 1.4, 0]} />
-        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[-1.2, 0, -2.6]} castShadow={false} />
-        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[6.6, 0, -4.2]} rotation={[0, 0.8, 0]} castShadow={false} />
-        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[0.4, 0, 2.6]} rotation={[0, 2.4, 0]} castShadow={false} />
+        {/* 모델 원본은 등받이가 −z 쪽이라 π 돌린다 — 좌면 z≈0.2…0.5(관객·옆사람), 등받이 z≈0.65 */}
+        <Prop url="/reactive/models/props/painted_wooden_bench.glb" scale={1.2} position={[0.55, 0, 0.42]} rotation={[0, Math.PI + benchYaw, 0]} />
+        <Prop url="/reactive/models/props/metal_trash_can.glb" position={[-2.4, 0, -0.9]} rotation={[0, 0.4, 0]} />
+        <Prop url="/reactive/models/props/shrub_02.glb" position={[-3.0, 0, 1.9]} />
+        <Prop url="/reactive/models/props/shrub_02.glb" position={[3.6, 0, 2.0]} rotation={[0, 1.4, 0]} />
+        <Prop url="/reactive/models/props/shrub_04.glb" position={[7.2, 0, -1.6]} rotation={[0, 0.7, 0]} />
+        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[-3.8, 0, -1.7]} castShadow={false} />
+        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[4.0, 0, -2.0]} rotation={[0, 0.8, 0]} castShadow={false} />
+        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[0.4, 0, 2.7]} rotation={[0, 2.4, 0]} castShadow={false} />
+        <Prop url="/reactive/models/props/grass_medium_01.glb" position={[8.5, 0, -18.6]} rotation={[0, 1.1, 0]} castShadow={false} />
       </Suspense>
-      {/* 포스터 — Shelter 안의 것 위에 파닥이는 별도 면을 겹친다 */}
-      <mesh ref={posterRef} position={[0.93, 1.25, -0.55]} rotation={[0, -Math.PI / 2, 0.06]}>
+      {/* 포스터 — 오른쪽 유리(v2.md §1-1, 약 +75°), 옆사람 머리 뒤로 보인다 */}
+      <mesh ref={posterRef} position={[2.14, 1.35, -0.1]} rotation={[0, -Math.PI / 2, 0.06]}>
         <planeGeometry args={[0.32, 0.44]} />
         <meshStandardMaterial map={posterTex} transparent alphaTest={0.4} roughness={0.9} side={2} />
       </mesh>
 
-      {/* 카페 — 온실형 베이커리(v2.md §1-2 "유리와 검은 금속 프레임"). 창 불빛이 상태를 따른다 */}
-      <group position={[-9, 0, -12]}>
+      {/* ================= 카페 — 도로 건너 왼쪽 약 -38°, 30m (v2.md §1-2) ================= */}
+      <group position={[-19, 0, -26]} rotation={[0, 0.25, 0]}>
         <mesh position={[0, 0.06, 0]} receiveShadow>
-          <boxGeometry args={[3.6, 0.12, 3.0]} />
+          <boxGeometry args={[4.6, 0.12, 3.6]} />
           <meshStandardMaterial color="#3a3632" roughness={0.9} />
         </mesh>
-        <mesh position={[0, 1.25, 0]}>
-          <boxGeometry args={[3.0, 2.3, 2.4]} />
+        <mesh position={[0, 1.4, 0]}>
+          <boxGeometry args={[4.0, 2.6, 3.0]} />
           <meshPhysicalMaterial color="#dfe9ee" transmission={0.85} thickness={0.2} roughness={0.15} ior={1.4} transparent opacity={0.9} />
         </mesh>
-        {[[-1.5, 0, 1.2], [1.5, 0, 1.2], [-1.5, 0, -1.2], [1.5, 0, -1.2]].map(([x, , z], i) => (
-          <mesh key={i} position={[x, 1.25, z]} castShadow>
-            <boxGeometry args={[0.08, 2.4, 0.08]} />
+        {[[-2.0, 1.5], [2.0, 1.5], [-2.0, -1.5], [2.0, -1.5]].map(([x, z], i) => (
+          <mesh key={i} position={[x, 1.4, z]} castShadow>
+            <boxGeometry args={[0.1, 2.7, 0.1]} />
             <meshStandardMaterial color="#1a1c1f" metalness={0.6} roughness={0.5} />
           </mesh>
         ))}
-        {[-1.0, 0, 1.0].map((x) => (
-          <mesh key={x} position={[x, 2.42, 0]}>
-            <boxGeometry args={[0.06, 0.06, 2.5]} />
+        {[-1.3, 0, 1.3].map((x) => (
+          <mesh key={x} position={[x, 2.72, 0]}>
+            <boxGeometry args={[0.07, 0.07, 3.1]} />
             <meshStandardMaterial color="#1a1c1f" metalness={0.6} roughness={0.5} />
           </mesh>
         ))}
-        <mesh position={[0, 2.95, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-          <coneGeometry args={[2.3, 1.0, 4]} />
+        <mesh position={[0, 3.35, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+          <coneGeometry args={[3.0, 1.2, 4]} />
           <meshPhysicalMaterial color="#cfd9de" transmission={0.5} roughness={0.3} transparent opacity={0.85} />
         </mesh>
-        {/* 실내: 따뜻한 빛과 진열대 실루엣 */}
-        <mesh position={[0, 0.9, -0.6]}>
-          <boxGeometry args={[2.2, 0.9, 0.5]} />
+        <mesh position={[0, 0.95, -0.7]}>
+          <boxGeometry args={[3.0, 1.0, 0.6]} />
           <meshStandardMaterial color="#5a3d28" roughness={0.8} />
         </mesh>
-        <mesh position={[0, 1.6, -1.1]}>
-          <planeGeometry args={[2.6, 1.2]} />
+        <mesh position={[0, 1.7, -1.4]}>
+          <planeGeometry args={[3.6, 1.5]} />
           <meshStandardMaterial ref={cafeGlow} color="#ffb072" emissive="#ff8a4c" emissiveIntensity={0.9} />
         </mesh>
-        <pointLight ref={cafeLight} position={[0, 1.6, 0]} color="#ffa06a" intensity={0.9} distance={7} />
+        <pointLight ref={cafeLight} position={[0, 1.8, 0]} color="#ffa06a" intensity={1.2} distance={10} />
+        {/* 문 (정면, 관객 쪽) */}
+        <mesh position={[0.9, 1.05, 1.52]}>
+          <boxGeometry args={[0.9, 2.0, 0.05]} />
+          <meshStandardMaterial color="#2b2a28" roughness={0.6} />
+        </mesh>
       </group>
 
-      {/* 풀숲·나무 — BlockoutStage 배치 그대로 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, 0.02, 1.9]} receiveShadow>
-        <planeGeometry args={[7, 1]} />
+      {/* ================= 풀숲(뒤) · 길가 억새 ================= */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, 0.02, 2.4]} receiveShadow>
+        <planeGeometry args={[9, 1.6]} />
         <meshStandardMaterial color="#3a4a36" />
       </mesh>
-      <Reeds position={[-2.2, 0, 1.85]} count={6} />
-      <Reeds position={[-0.6, 0, 1.9]} count={7} />
-      <Reeds position={[1.0, 0, 1.88]} count={6} />
-      <Reeds position={[2.6, 0, 1.92]} count={7} />
-      <Reeds position={[1.9, 0, 1.9]} count={5} />
-      {/* 벤치 뒤 원뿔 전나무는 RealForest 의 뒷줄 침엽수로 대체됐다 */}
-      <Reeds position={[6.6, 0, -1.8]} count={5} />
-      <Reeds position={[6.9, 0, -3.2]} count={6} />
-      <Reeds position={[6.5, 0, -4.6]} count={5} />
-      <Suspense fallback={(
-        <>
-          {[[7.2, -2.2, 6.5, -0.04], [7.6, -4.4, 7.5, 0.03], [7.1, -6.6, 6.0, -0.02], [7.8, -9.2, 8.5, 0.05], [7.3, -12.0, 7.0, -0.03], [8.1, -15.5, 9.0, 0.02]].map(([x, z, h, lean], i) => (
-            <Cypress key={i} position={[x, 0, z]} height={h} lean={lean} />
-          ))}
-          {[-1.6, -2.0, -1.4].map((x, i) => <Cypress key={`l${i}`} position={[x, 0, -1.2 - i * 2.4]} height={5 + i * 0.8} lean={(i - 1) * 0.03} />)}
-          <ForestRing radius={13} count={22} />
-        </>
-      )}>
-        <RealForest radius={13} count={22} />
+      <Reeds position={[-2.6, 0, 2.3]} count={6} />
+      <Reeds position={[-1.0, 0, 2.5]} count={7} />
+      <Reeds position={[0.9, 0, 2.4]} count={6} />
+      <Reeds position={[2.7, 0, 2.6]} count={7} />
+      <Reeds position={[1.9, 0, 3.0]} count={5} />
+      <Reeds position={[6.8, 0, -2.4]} count={5} />
+      <Reeds position={[8.4, 0, -2.0]} count={6} />
+      <Reeds position={[-7.5, 0, -2.2]} count={5} />
+      <Suspense fallback={<ForestRing radius={22} count={30} />}>
+        <RealForest />
       </Suspense>
 
-      {/* 가로등 2개 — 정류장 뒤(공포 트리거)와 도로 건너 */}
-      <group position={[1.4, 0, 1.4]}>
+      {/* ================= 가로등 — 정류장 뒤(공포 트리거)와 도로 건너 ================= */}
+      <group position={[1.6, 0, 1.7]}>
         <Suspense fallback={null}><Prop url="/reactive/models/props/street_lamp_01.glb" scale={0.85} rotation={[0, Math.PI, 0]} /></Suspense>
         <mesh position={[0, 3.05, -0.35]}>
           <sphereGeometry args={[0.1, 8, 8]} />
@@ -754,25 +894,31 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
         </mesh>
         <pointLight ref={lampLight} position={[0, 3.0, -0.35]} color="#ffedb0" intensity={0} distance={6} />
       </group>
-      <group position={[6.3, 0, -6]}>
+      <group position={[5.5, 0, -18.6]}>
         <Suspense fallback={null}><Prop url="/reactive/models/props/street_lamp_01.glb" scale={0.85} /></Suspense>
         <mesh position={[0, 3.05, 0.35]}>
           <sphereGeometry args={[0.1, 8, 8]} />
           <meshStandardMaterial ref={lampBulb2} color="#fff2c0" emissive="#fff2c0" emissiveIntensity={0.1} />
         </mesh>
-        <pointLight ref={lampLight2} position={[0, 3.0, 0.35]} color="#ffedb0" intensity={0} distance={6} />
+        <pointLight ref={lampLight2} position={[0, 3.0, 0.35]} color="#ffedb0" intensity={0} distance={7} />
+      </group>
+      <group position={[-9.5, 0, -18.6]}>
+        <Suspense fallback={null}><Prop url="/reactive/models/props/street_lamp_01.glb" scale={0.85} /></Suspense>
       </group>
 
       {/* 리깅 캐릭터 점검용 (?rigtest=1): 두 캐릭터를 관객 정면 3m에 세워 로딩·크기·방향을 확인한다 */}
       {rigTest && (
         <Suspense fallback={null}>
-          <group position={[-0.7, 0, -3]}><RiggedPerson rig="A" walking facing={0} /></group>
-          <group position={[0.7, 0, -3]}><RiggedPerson rig="B" walking={false} facing={0} /></group>
+          <group position={[-1.6, 0, -3]}><RiggedPerson rig="A" walking facing={0} /></group>
+          <group position={[-0.5, 0, -3]}><RiggedPerson rig="B" walking={false} facing={0} /></group>
+          <mesh position={[1.2, 0.23, -3.2]}><boxGeometry args={[1.6, 0.46, 0.5]} /><meshStandardMaterial color="#6b4a2a" /></mesh>
+          <group position={[0.8, 0, -3]}><RiggedPerson rig="A" seated facing={0} /></group>
+          <group position={[1.6, 0, -3]}><RiggedPerson rig="B" seated facing={0} /></group>
         </Suspense>
       )}
       {/* ---- 배우 ---- */}
       {actors.figure?.visible && (
-        <group position={[actors.figure.x, 0, actors.figure.z]} rotation={[0, 0.7, 0]}>
+        <group position={[actors.figure.x, 0, actors.figure.z]} rotation={[0, actors.figure.yaw ?? 0, 0]}>
           {useRig ? (
             <Suspense fallback={<Person raincoat tint="#5d6f82" walking={actors.figure.walking} bob={actors.figure.bob} scale={0.95} />}>
               <RiggedPerson rig="A" walking={actors.figure.walking} scale={0.98} facing={0} />
@@ -782,16 +928,20 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
           )}
         </group>
       )}
-      {actors.truck?.visible && <Truck x={actors.truck.x} z={actors.truck.z} />}
+      {actors.truck?.visible && (
+        <group position={[actors.truck.x, 0, actors.truck.z]} rotation={[0, -Math.PI / 2, 0]}>
+          <Truck x={0} z={0} />
+        </group>
+      )}
       {actors.splash != null && <Splash p={actors.splash} />}
       {actors.cat?.visible && <Cat {...actors.cat} />}
       {actors.npc?.visible && (
-        <group ref={npcGroup} position={[actors.npc.x, 0, actors.npc.z]} rotation={[0, actors.npc.seated ? 0.15 : -Math.PI * 0.45, 0]}>
+        <group ref={npcGroup} position={[actors.npc.x, 0, actors.npc.z]} rotation={[0, actors.npc.seated ? 0.15 : (actors.npc.yaw ?? 0) - Math.PI * 0.8, 0]}>
           {useRig ? (
             <Suspense fallback={<Person raincoat={dominant !== "C"} tint={npcTint} head={npcHead} walking={actors.npc.walking} seated={actors.npc.seated} bob={actors.npc.bob} gazeRef={npcGaze} />}>
               {/* 시선 접촉률은 몸 전체가 관객 쪽으로 도는 정도로 나타낸다 — 착석 상태에선 관객(-x 쪽)을 향하는 각도가 -π/2 */}
               <group ref={npcGaze} position={[0, 1.55, 0]} />
-              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} />
+              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} seated={actors.npc.seated} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} />
             </Suspense>
           ) : (
           <Person
@@ -813,7 +963,11 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
           )}
         </group>
       )}
-      {actors.bus?.visible && <Bus {...actors.bus} />}
+      {actors.bus?.visible && (
+        <group position={[actors.bus.x, 0, actors.bus.z]} rotation={[0, Math.PI / 2, 0]}>
+          <Bus {...actors.bus} x={0} z={0} />
+        </group>
+      )}
 
       {/* 암전 — 카메라 앞에 붙는 검은 판 */}
       <mesh position={[0, 1.15, -0.6]} renderOrder={999}>

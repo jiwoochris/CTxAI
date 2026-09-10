@@ -56,9 +56,11 @@ export function createDirectionState(opts = {}) {
   const settleMass = opts.settleMass ?? 2.5;
   const sampleEveryMs = opts.sampleEveryMs ?? 500;
 
-  const acc = { R: 0, H: 0, C: 0 };
-  let accMass = 0;
-  let totalMass = 0;
+  // 균등 사전분포 — 첫 증거 하나(예: 안 본 사건 0.25)가 곧바로 100% 로 튀지 않도록 가벼운 무게를 깔아 둔다.
+  const priorMass = opts.priorMass ?? 0.8;
+  const acc = { R: priorMass / 3, H: priorMass / 3, C: priorMass / 3 };
+  let accMass = priorMass;
+  let totalMass = 0; // 정착도는 실제 증거만 센다
 
   const st = {
     current: { R: 1 / 3, H: 1 / 3, C: 1 / 3 },

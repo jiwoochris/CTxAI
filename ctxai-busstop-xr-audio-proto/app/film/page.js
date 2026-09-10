@@ -18,6 +18,7 @@
 // (scripts/pull-assets.mjs 로 받은 로컬 파일)에서만 읽는다.
 //
 // URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기) · ?fx=0 (후처리·도로 반사 끄기)
+//           ?gaze=0 (데스크톱 자동 시선 끄기) · ?auto=1 (게이트 없이 자동 시작)
 //           ?pool=1 (대사 풀 모드 — 원문 46줄 대신 상태에 따라 보조 장르 변주를 줄마다 고른다. 목소리는 OpenRouter 합성)
 //           ?scene=240 (캐릭터 장면 목표 길이 초 — 대사 사이 침묵을 늘려 안내방송의 "5분 후 도착"에 가깝게. 기본 0 = 자연 길이)
 //           ?voice=1 (음성 채널 — 안내방송 뒤 "당신은 무엇을 기다리고 있습니까?"를 묻고 답을 STT·톤 분석해 증거로 넣고,
@@ -29,7 +30,7 @@ import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { XR, createXRStore, useXR } from "@react-three/xr";
 import { EffectComposer, Bloom, Vignette, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
-import { Euler, MathUtils } from "three";
+import { Euler, MathUtils, Vector3 } from "three";
 import ReactiveStage from "@/components/ReactiveStage";
 import { createDirectionState, rank } from "@/lib/directionState";
 import { createHeadPoseSensor } from "@/lib/headPoseSense";
@@ -75,8 +76,9 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
 
     // 카메라 포즈 → 헤드 포즈 센서. 오른쪽 = +yaw. 뒤로 물러남(z+)은 헤드셋 세션에서만 의미가 있다.
     euler.setFromQuaternion(state.camera.quaternion, "YXZ");
-    const yaw = -MathUtils.radToDeg(euler.y);
-    const pitch = MathUtils.radToDeg(euler.x);
+    let yaw = -MathUtils.radToDeg(euler.y);
+    let pitch = MathUtils.radToDeg(euler.x);
+    if (film.autoGaze && film.autoGazeHold) { yaw = film.autoGazeHold.yaw; pitch = film.autoGazeHold.pitch; }
     const z = session ? state.camera.position.z : 0;
     sensorRef.current?.update(yaw, pitch, z, clamped);
 
@@ -93,7 +95,7 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
     actorsRef.current = actors;
 
     // 옆사람이 앉아 있으면 그 방향을 센서에 알려 "사람에 대한 관심"을 잰다
-    if (actors.npc?.visible && actors.npc.seated) {
+    if (actors.npc?.visible && actors.npc.seated && !film.autoGaze) {
       const dx = actors.npc.x - state.camera.position.x;
       const dz = actors.npc.z - state.camera.position.z;
       sensorRef.current?.setNpcAzimuth(MathUtils.radToDeg(Math.atan2(dx, -dz)));
@@ -102,6 +104,44 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
     if (film.onFrame) film.onFrame(film.t, actors);
   });
 
+  return null;
+}
+
+// 데스크톱 자동 시선 — 헤드셋에서는 관객이 직접 고개를 돌리지만, 화면 데모에서는 아무도 드래그하지 않으면
+// 옆사람이 앉은 뒤 카메라가 옆사람 쪽(오른쪽 약 60°)으로 천천히 돌아가고, 버스가 오면 정면으로 돌아온다.
+// 드래그하면 8초 동안 손을 뗀다. 자동으로 도는 동안은 "사람에 대한 관심" 측정을 끈다(film.autoGaze).
+const AUTO_GAZE_NPC = 1.3, AUTO_GAZE_BUS = 0.12, AUTO_GAZE_PITCH = -0.14; // 실측: 77° 오른쪽·약간 아래가 옆사람 얼굴이 가운데 오는 각
+function DesktopGaze({ controlsRef, actorsRef, filmRef }) {
+  const session = useXR((xr) => xr.session);
+  const manualUntil = useRef(0);
+  const dir = useMemo(() => new Vector3(), []);
+  useEffect(() => {
+    const c = controlsRef.current; if (!c) return;
+    const onStart = () => { manualUntil.current = performance.now() + 8000; };
+    c.addEventListener("start", onStart);
+    return () => c.removeEventListener("start", onStart);
+  }, [controlsRef]);
+  useFrame((state, dt) => {
+    const film = filmRef.current; const c = controlsRef.current;
+    if (session || !c || !film.running) { film.autoGaze = false; return; }
+    const actors = actorsRef.current;
+    const tune = (typeof window !== "undefined" && window.__gaze) || {}; // 점검용 덮어쓰기 {npc, bus, pitch} (rad)
+    let target = null, targetPitch = 0;
+    if (film.busAt != null) target = tune.bus ?? AUTO_GAZE_BUS;
+    else if (actors?.npc?.visible && actors.npc.seated) { target = tune.npc ?? AUTO_GAZE_NPC; targetPitch = tune.pitch ?? AUTO_GAZE_PITCH; }
+    if (target == null || performance.now() < manualUntil.current) { film.autoGaze = false; film.autoGazeHold = null; return; }
+    // 현재 방위(오른쪽 +)·앙각을 카메라→타깃 벡터에서 읽어 목표 방위로 완만히 보간한다
+    dir.copy(c.target).sub(state.camera.position);
+    const r = dir.length() || 0.01;
+    const yaw = Math.atan2(dir.x, -dir.z);
+    const pitch = Math.asin(Math.max(-1, Math.min(1, dir.y / r)));
+    if (!film.autoGaze) film.autoGazeHold = { yaw: MathUtils.radToDeg(yaw), pitch: MathUtils.radToDeg(pitch) }; // 센서엔 이 값이 계속 들어간다
+    film.autoGaze = true;
+    const ny = yaw + (target - yaw) * Math.min(1, dt * 0.9);
+    const np = pitch + (targetPitch - pitch) * Math.min(1, dt * 0.9);
+    dir.set(Math.sin(ny) * Math.cos(np), Math.sin(np), -Math.cos(ny) * Math.cos(np)).multiplyScalar(r);
+    state.camera.position.copy(c.target).sub(dir);
+  });
   return null;
 }
 
@@ -163,6 +203,9 @@ export default function FilmPage() {
   const sceneTarget = Math.max(0, Number(q.scene) || 0);
   const fx = q.fx !== "0"; // ?fx=0 이면 후처리·도로 반사 끄기 (성능 점검용)
   const [xrActive, setXrActive] = useState(false);
+  // ?auto=1 — 마운트 직후 자동 시작 (관찰·리허설용. 브라우저 자동재생 정책에 따라 소리가 막힐 수 있다)
+  const autoStart = q.auto === "1";
+  useEffect(() => { if (autoStart && phase === "gate") { const id = setTimeout(() => start(), 1500); return () => clearTimeout(id); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [autoStart]);
   const useVoice = q.voice === "1" || !!voiceFake;
   const [signText, setSignText] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("off");
@@ -186,6 +229,7 @@ export default function FilmPage() {
   const actorsRef = useRef({});
   const paramsRef = useRef(null);
   const filmRef = useRef({ running: false, t: 0, dominant: null, npcDistance: 0.9, busAt: null, onFrame: null });
+  const controlsRef = useRef(null);
   const audioRef = useRef(new Map());
   const bgmRef = useRef({});
   const videoRef = useRef(null);
@@ -450,7 +494,7 @@ export default function FilmPage() {
     setCaption("272");
     // 문 열림 → 인물 퇴장 → 버스 출발 → 암전 (filmTimeline의 busAt 기준 오프셋)
     await wait((7.2 * 1000) / speed); if (token.aborted) return; playSfx("08", { volume: 0.5 }); setCaption("");
-    await wait((14 * 1000) / speed);
+    await wait((16 * 1000) / speed); // 퇴장 6초 + 출발 6초 + 암전 4초 (filmTimeline: busAt+8…+23)
     if (token.aborted) return;
     d.setPhase("end");
     setPhase("end");
@@ -525,10 +569,11 @@ export default function FilmPage() {
             <XRProbe onChange={setXrActive} />
             <Effects enabled={fx} />
             <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
+            {q.gaze !== "0" && <DesktopGaze controlsRef={controlsRef} actorsRef={actorsRef} filmRef={filmRef} />}
           </XR>
           {/* 드래그 = 제자리에서 고개 돌리기. 타깃을 카메라 바로 앞 1cm 에 두면 궤도 회전이 머리 회전처럼 된다
               (타깃이 멀면 카메라가 반대편으로 돌아가 도로 한가운데서 정류장을 보게 된다). */}
-          <OrbitControls target={[0, 1.15, 0.34]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={-0.35} />
+          <OrbitControls ref={controlsRef} target={[0, 1.15, 0.34]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={-0.35} />
         </Canvas>
         <div className={s.vignette} />
       </div>

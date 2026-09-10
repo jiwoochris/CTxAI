@@ -2,8 +2,7 @@
 // 배우(우비 인물·트럭·고양이·옆사람·버스)의 위치를 시간의 순수 함수로 계산한다.
 //
 // 시간은 "영화 시간"(초). 데모용으로 speed 배수를 걸어 압축할 수 있다.
-// 위치 좌표는 components/BlockoutStage.jsx 의 배치와 같다 — 벤치 착석 지점 바닥 = (0,0,0),
-// 정면 = -z, 오른쪽 = +x. 도로는 x 1.4 (가까운 차선) / 3.4 (건너편 차선), z -30 → +8 로 흐른다.
+// 위치 좌표: 벤치 착석 지점 바닥 = (0,0,0), 정면 = -z, 오른쪽 = +x. 도로는 정면에서 좌우(x)로 지나간다.
 //
 // 오디오 큐의 key는 public/reactive/audio/manifest.json 의 sfx key다.
 
@@ -46,65 +45,80 @@ function seg(t, a, b) { return smooth((t - a) / (b - a)); }
  * 시간 t(초) → 배우 상태. dominant는 판정 뒤 앉는 인물(R/H/C), npcDistance는 연출 상태에서 온 값.
  * busAt: 버스가 도착하기 시작한 시각(페이지가 대사 종료 시 설정). null이면 아직.
  */
+// 배우 좌표계 — 관객이 앉은 벤치 바닥 = 원점, 정면 = -z, 오른쪽 = +x.
+// 도로: 가까운 차선 중심 z=-4.75, 건너편 차선 중심 z=-15.25 (연석 -3 / 중앙선 -10 / 건너편 연석 -17).
+// 카페 (-19,-26) · 횡단보도 x=-5 · 공원 입구 숲 +x 쪽 · 풀숲 뒤 z>2.
+function heading(dx, dz) { return Math.atan2(dx, dz); } // 모델 정면(+z)이 진행 방향을 보게 하는 yaw
+
 export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null } = {}) {
   const a = {};
 
-  // 우비 인물 — 카페(-9,-12)에서 나와 횡단보도 앞(-1.4,-4.2)까지 걸어온다. 판정 시점에 시야에서 사라진다.
+  // 우비 인물 — 카페 문(-18,-24.4)에서 나와 횡단보도 건너편 끝(-5,-17.6)까지 걷고, 트럭이 지나가길
+  // 기다렸다가(36~40s) 길을 건너(40~52s) 인도를 따라 정류장 쪽으로 오다가(52~58s) 왼쪽 유리 뒤로 사라진다.
   if (t >= T.cafeBell && t < T.judge) {
-    const p = seg(t, T.cafeBell + 1, T.figureWalkEnd);
-    // 트럭이 지나가는 동안(횡단보도 앞) 잠시 멈춘다 (v1.1 "횡단보도 앞에 그녀는 잠시 멈췄다")
-    const x = lerp(-9, -1.4, p);
-    const z = lerp(-11.6, -4.2, p);
-    // 트럭이 지난 뒤 길을 건너 정류장 쪽(왼쪽 앞)으로 — 구조물에 가려지는 위치까지
-    const cross = t > T.truckEnd ? seg(t, T.truckEnd, T.judge) : 0;
-    a.figure = { visible: true, x: x + cross * 0.6, z: z + cross * 2.2, walking: p < 1 || cross > 0, bob: t };
+    let x, z, walking = true;
+    if (t < 36) { const p = seg(t, T.cafeBell + 1, 36); x = lerp(-18, -5, p); z = lerp(-24.4, -17.6, p); }
+    else if (t < 40) { x = -5; z = -17.6; walking = false; }
+    else if (t < 52) { const p = seg(t, 40, 52); x = -5; z = lerp(-17.6, -2.4, p); }
+    else { const p = seg(t, 52, T.judge); x = lerp(-5, -1.9, p); z = lerp(-2.4, -1.2, p); }
+    // 진행 방향으로 몸을 돌린다 (정지 중엔 도로를 본다)
+    const yaw = t < 36 ? heading(13, 6.8) : t < 40 ? heading(0, 1) : t < 52 ? heading(0, 1) : heading(3.1, 1.2);
+    a.figure = { visible: true, x, z, walking, yaw, bob: t };
   } else a.figure = { visible: false };
 
-  // 포터 트럭 — 가까운 차선 x=1.4, 먼 곳(-30)에서 관객 앞을 지나 뒤(+9)로.
+  // 포터 트럭 — 가까운 차선을 오른쪽에서 왼쪽으로(v2.md §1-3). 정류장 앞(x≈0.6)에서 물웅덩이를 밟는다.
   if (t >= T.truckStart && t <= T.truckEnd) {
     const p = (t - T.truckStart) / (T.truckEnd - T.truckStart);
-    a.truck = { visible: true, x: 1.5, z: lerp(-30, 9, p) };
+    a.truck = { visible: true, x: lerp(34, -34, p), z: -4.75 };
     a.splash = t >= T.truckSplash - 0.2 && t <= T.truckSplash + 1.2 ? (t - (T.truckSplash - 0.2)) / 1.4 : null;
   } else { a.truck = { visible: false }; a.splash = null; }
 
-  // 고양이 — 오른쪽 숲(7,-3)에서 뛰어들어 벤치 앞(0.9,-0.7)에 멈춰 관객을 보고, 왼쪽(-6,-1)으로 달아난다.
+  // 고양이 — 오른쪽 공원 진입로(9,-2.6)에서 뛰어들어 벤치 앞(0.9,-1.5)에 멈춰 관객을 보고, 왼쪽(-9,-2.2)으로 달아난다.
   if (t >= T.catIn && t <= T.catGone) {
     let x, z, running = true, facingBench = false;
-    if (t < T.catStop) { const p = seg(t, T.catIn, T.catStop); x = lerp(7, 0.9, p); z = lerp(-3, -0.7, p); }
-    else if (t < T.catOut) { x = 0.9; z = -0.7; running = false; facingBench = true; }
-    else { const p = seg(t, T.catOut, T.catGone); x = lerp(0.9, -6, p); z = lerp(-0.7, -1.2, p); }
+    if (t < T.catStop) { const p = seg(t, T.catIn, T.catStop); x = lerp(9, 0.9, p); z = lerp(-2.6, -1.5, p); }
+    else if (t < T.catOut) { x = 0.9; z = -1.5; running = false; facingBench = true; }
+    else { const p = seg(t, T.catOut, T.catGone); x = lerp(0.9, -9, p); z = lerp(-1.5, -2.2, p); }
     a.cat = { visible: true, x, z, running, facingBench, bob: t };
   } else a.cat = { visible: false };
 
   // 포스터 — 바람에 파닥이는 순간
   a.posterFlutter = t >= T.poster && t < T.poster + 2.5 ? Math.sin((t - T.poster) * 18) * Math.exp(-(t - T.poster) * 1.4) : 0;
 
-  // 옆사람 — 왼쪽 앞(-2.6,-1.6)에서 걸어와 벤치 오른쪽에 앉는다. 착석 뒤 거리는 연출 상태가 정한다.
+  // 옆사람 — 왼쪽 인도(-6,-1.7)에서 인도를 따라 걸어와(관객 앞 1.5m 를 지나며 얼굴이 보인다) 벤치 오른쪽 끝 앞에서
+  // 멈춰 돌아선 뒤 앉는다. 관객 코앞(0.5m 안)으로는 절대 들어오지 않는다. 착석 뒤 거리는 연출 상태가 정한다.
   if (dominant && t >= T.npcWalkStart) {
-    const seatX = 0.35 + npcDistance;           // 관객(x=0) 기준 거리
-    if (t < T.npcSeated) {
-      const p = seg(t, T.npcWalkStart, T.npcSeated);
-      a.npc = { visible: true, x: lerp(-2.6, seatX, p), z: lerp(-1.8, 0.05, p), seated: false, walking: true, bob: t };
+    const seatX = 0.35 + npcDistance;
+    const turnAt = T.npcSeated - 1.1;
+    if (t < turnAt) {
+      const p = (t - T.npcWalkStart) / (turnAt - T.npcWalkStart); // 등속 — 걷는 사람은 가감속이 거의 없다
+      const x = lerp(-6, seatX + 0.15, p), z = lerp(-1.7, -1.25, p);
+      a.npc = { visible: true, x, z, seated: false, walking: true, yaw: heading(seatX + 6.15, 0.45), bob: t };
+    } else if (t < T.npcSeated) {
+      const p = seg(t, turnAt, T.npcSeated);
+      const x = lerp(seatX + 0.15, seatX, p), z = lerp(-1.25, 0.3, p);
+      a.npc = { visible: true, x, z, seated: false, walking: true, yaw: lerp(heading(0, 1), heading(-0.15, 1.55), p), bob: t };
     } else {
-      a.npc = { visible: true, x: seatX, z: 0.05, seated: true, walking: false, bob: t };
+      a.npc = { visible: true, x: seatX, z: 0.3, seated: true, walking: false, yaw: Math.PI, bob: t };
     }
   } else a.npc = { visible: false };
 
-  // 272번 버스 — 먼 곳에서 와서 벤치 앞(z≈-0.6)에 선다. 문이 열리고, 인물이 떠난다.
+  // 272번 버스 — 왼쪽 커브 너머(v1.1)에서 가까운 차선으로 와서 정류장 앞(x≈1.2)에 선다. 문이 열리고 인물이 떠난다.
   if (busAt != null && t >= busAt) {
     const p = seg(t, busAt, busAt + 7);
-    const z = lerp(-34, -0.4, p);
+    const x = lerp(-48, 1.2, p);
     const stopped = t >= busAt + 7;
-    a.bus = { visible: true, x: 2.75, z, stopped, doorOpen: stopped, headlight: 1 - p * 0.4 }; // 차선 중앙(x≈2.75)에 정차 — 벤치에서 1.5m 떨어져 창과 문이 보인다
-    // 인물 퇴장 — 공포: 벤치 뒤 풀숲으로 / 로맨스·코미디: 버스로
+    a.bus = { visible: true, x, z: -4.75, stopped, doorOpen: stopped, headlight: 1 - p * 0.4 };
+    // 인물 퇴장 — 공포: 벤치 뒤 풀숲으로 / 로맨스·코미디: 버스 문 앞(1.2,-2.6)으로. 정차는 9초(문 열림 1초 뒤 일어선다)
     if (stopped && a.npc.visible) {
-      const q = seg(t, busAt + 8, busAt + 13);
-      if (dominant === "H") a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.2, q), z: lerp(0.05, 3.2, q), bob: t, visible: q < 1 };
-      else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.6, q), z: lerp(0.05, -0.9, q), bob: t, visible: q < 0.98 };
+      const q = seg(t, busAt + 8, busAt + 14);
+      if (dominant === "H") a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.6, q), z: lerp(0.3, 3.6, q), yaw: heading(0.5, 3.3), bob: t, visible: q < 1 };
+      else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.2, q), z: lerp(0.3, -2.6, q), yaw: heading(0.2, -2.9), bob: t, visible: q < 0.98 };
     }
-    a.busLeaving = t >= busAt + 14 ? seg(t, busAt + 14, busAt + 20) : 0;
-    if (a.busLeaving > 0) a.bus.z = lerp(-0.4, 12, a.busLeaving);
-    a.fade = t >= busAt + 17 ? seg(t, busAt + 17, busAt + 21) : 0;
+    a.bus.doorOpen = stopped && t < busAt + 16;
+    a.busLeaving = t >= busAt + 16 ? seg(t, busAt + 16, busAt + 22) : 0;
+    if (a.busLeaving > 0) a.bus.x = lerp(1.2, 50, a.busLeaving);
+    a.fade = t >= busAt + 19 ? seg(t, busAt + 19, busAt + 23) : 0;
   } else { a.bus = { visible: false }; a.busLeaving = 0; a.fade = 0; }
 
   return a;
