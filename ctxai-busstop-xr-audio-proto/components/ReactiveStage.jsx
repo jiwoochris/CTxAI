@@ -276,6 +276,32 @@ function SkyDome({ skyMat, envOut }) {
   );
 }
 
+// 찢어진 포스터 — v2.md §1-1. 아래 절반이 찢겨 나가고 "…찾습니다" "…사례합니다"만 남은 종이.
+function usePosterTexture() {
+  return useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const W = 512, H = 704;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.fillStyle = "#d9d2bf"; g.fillRect(0, 0, W, H);
+    // 빗물 얼룩
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(120,100,70,${0.05 + (i % 5) * 0.03})`; g.beginPath(); g.ellipse((i * 137) % W, (i * 211) % H, 40 + (i % 4) * 18, 22 + (i % 3) * 12, i, 0, Math.PI * 2); g.fill(); }
+    // 사진 자리(고양이인지 사람인지 알 수 없게 흐리게)
+    g.fillStyle = "#8d8577"; g.fillRect(96, 70, 320, 250);
+    g.fillStyle = "#a9a08f"; g.beginPath(); g.ellipse(256, 195, 90, 100, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#2b2622"; g.font = "bold 74px Pretendard, 'Apple SD Gothic Neo', sans-serif"; g.textAlign = "center";
+    g.fillText("…찾습니다", 256, 420);
+    g.font = "bold 52px Pretendard, 'Apple SD Gothic Neo', sans-serif"; g.fillText("…사례합니다", 256, 490);
+    // 아래쪽 찢김 — 알파 0 으로 지운다
+    g.globalCompositeOperation = "destination-out";
+    g.beginPath(); g.moveTo(0, 520);
+    for (let x = 0; x <= W; x += 32) g.lineTo(x, 520 + Math.sin(x * 0.13) * 26 + ((x / 32) % 3) * 14);
+    g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+    const tx = new CanvasTexture(c); tx.colorSpace = SRGBColorSpace; tx.anisotropy = 4;
+    return tx;
+  }, []);
+}
+
 function Truck({ x, z }) {
   return (
     <group position={[x, 0, z]}>
@@ -468,6 +494,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
   const posterRef = useRef();
 
   const fog = useMemo(() => new FogExp2("#8f96a3", 0.03), []);
+  const posterTex = usePosterTexture();
   const envMaps = useRef(null);
   const envKey = useRef(null);
   const tmpA = useMemo(() => new Vector3(), []);
@@ -627,7 +654,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       {/* 포스터 — Shelter 안의 것 위에 파닥이는 별도 면을 겹친다 */}
       <mesh ref={posterRef} position={[0.93, 1.25, -0.55]} rotation={[0, -Math.PI / 2, 0.06]}>
         <planeGeometry args={[0.32, 0.44]} />
-        <meshStandardMaterial color="#e8e2d0" side={2} />
+        <meshStandardMaterial map={posterTex} transparent alphaTest={0.4} roughness={0.9} side={2} />
       </mesh>
 
       {/* 카페 — 온실형 베이커리(v2.md §1-2 "유리와 검은 금속 프레임"). 창 불빛이 상태를 따른다 */}
