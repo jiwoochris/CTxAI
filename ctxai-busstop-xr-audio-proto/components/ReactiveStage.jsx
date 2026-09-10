@@ -489,6 +489,36 @@ function Truck({ x, z }) {
   );
 }
 
+// 비 갠 직후 — 정류장 지붕 앞 처마에서 물방울이 드문드문 떨어진다 (도입부 60초의 기다림에 움직임을 준다)
+function RoofDrips({ count = 9 }) {
+  const drops = useMemo(() => Array.from({ length: count }, (_, i) => ({
+    x: -0.85 + (i / (count - 1)) * 3.0 + Math.sin(i * 7.3) * 0.08, phase: (Math.sin(i * 3.1) * 0.5 + 0.5) * 3.5, period: 2.6 + (i % 4) * 0.9,
+  })), [count]);
+  const refs = useRef([]);
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    drops.forEach((d, i) => {
+      const m = refs.current[i]; if (!m) return;
+      const u = ((t + d.phase) % d.period) / d.period; // 0 → 1
+      const fall = u < 0.32 ? u / 0.32 : 1; // 0.32 주기 동안 낙하, 나머지는 처마에 맺힘
+      m.position.set(d.x, 2.33 - fall * fall * 2.33, -0.98);
+      m.visible = u < 0.32 || u > 0.85; // 맺히는 마지막 구간에만 보인다
+      const s = u > 0.85 ? 0.6 + (u - 0.85) / 0.15 * 0.6 : 1;
+      m.scale.setScalar(s);
+    });
+  });
+  return (
+    <group>
+      {drops.map((d, i) => (
+        <mesh key={i} ref={(el) => { refs.current[i] = el; }} position={[d.x, 2.33, -0.98]}>
+          <sphereGeometry args={[0.011, 6, 6]} />
+          <meshPhysicalMaterial color="#dfe9ee" roughness={0.05} metalness={0.1} transparent opacity={0.8} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function useRadialTexture() {
   return useMemo(() => {
     if (typeof document === "undefined") return null;
@@ -897,6 +927,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
         ))}
         {/* 지붕 아래 온광 — 네온 띠가 실제로 벤치·얼굴을 비춘다 (지붕 그림자 아래가 새까맣던 것) */}
         <pointLight position={[0.6, 2.2, 0.0]} color="#ffb877" intensity={0.9} distance={5} decay={2} />
+        <RoofDrips />
         {/* 기둥 4개 (뒤 2, 앞 2) */}
         {[[-0.95, 1.15], [2.15, 1.15], [-0.95, -0.95], [2.15, -0.95]].map(([x, z], i) => (
           <mesh key={i} position={[x, 1.19, z]} castShadow>
