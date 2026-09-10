@@ -52,7 +52,7 @@ export function rank(scores) {
  */
 export function createDirectionState(opts = {}) {
   const followRate = opts.followRate ?? 0.6;
-  const decayHalfLifeSec = opts.decayHalfLifeSec ?? 90;
+  const decayHalfLifeSec = opts.decayHalfLifeSec ?? 150; // 도입부 사건 채점이 5분 장면 끝까지 남도록
   const settleMass = opts.settleMass ?? 2.5;
   const sampleEveryMs = opts.sampleEveryMs ?? 500;
 

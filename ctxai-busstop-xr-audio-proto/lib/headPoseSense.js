@@ -181,18 +181,22 @@ export function createHeadPoseSensor({ push, mark }) {
       let H = Math.min(defensive, sustained, slowRecovery);
       let C = Math.min(explore, fastRecovery);
       let R = clamp01(1 - Math.max(H, C));
+      const attention = npcAzimuth != null ? clamp01(win.lookAtNpcSec / (WINDOW_SEC * 0.5)) : 0;
       if (npcAzimuth != null) {
         // 옆사람을 차분히 오래 봄 = 사람에 대한 관심 (로맨스 가산), 보지 않고 자꾸 딴 곳을 살핌 = 경계
-        const attention = clamp01(win.lookAtNpcSec / (WINDOW_SEC * 0.5));
         R = Math.max(R, attention * (1 - defensive));
         if (attention < 0.15 && explore > 0.3) H = Math.max(H, 0.35 * slowRecovery + 0.15);
       }
-      const sum = R + H + C || 1;
-      const scores = { R: R / sum, H: H / sum, C: C / sum };
-      // 상시 지표는 사건 채점보다 가볍게(0.35) — 사건이 근거가 더 두껍다. 반응이
-      // 전혀 없는 창(reversals 0, 정면만 봄)은 약한 로맨스 증거로만 남긴다.
-      const weight = win.reversals === 0 && defensive < 0.1 ? 0.15 : 0.35;
-      push(scores, weight, "headpose:window", `rev=${win.reversals} away=${win.maxAwaySec.toFixed(1)}s`);
+      // 새 정보가 없는 창(고개도 안 돌리고, 물러나지도 않고, 옆사람도 특별히 보지 않음)은
+      // 아무것도 밀어 넣지 않는다 — "반응 없음 = 로맨스"는 도입부 사건 채점이 이미 담당한다.
+      // 여기서까지 로맨스를 넣으면 5분 장면 내내 상태가 로맨스로 흘러가 도입부 반응이 지워진다.
+      const quiet = win.reversals === 0 && defensive < 0.1 && attention < 0.15;
+      if (!quiet) {
+        const sum = R + H + C || 1;
+        const scores = { R: R / sum, H: H / sum, C: C / sum };
+        // 상시 지표는 사건 채점보다 가볍게(0.35) — 사건이 근거가 더 두껍다.
+        push(scores, 0.35, "headpose:window", `rev=${win.reversals} away=${win.maxAwaySec.toFixed(1)}s${attention > 0.15 ? ` npc=${attention.toFixed(2)}` : ""}`);
+      }
       win = freshWindow();
     }
 

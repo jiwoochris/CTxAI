@@ -240,7 +240,7 @@ export default function FilmPage() {
 
   async function start() {
     abortRef.current = { aborted: false };
-    const d = createDirectionState({ followRate: 0.6, decayHalfLifeSec: 90, settleMass: 2.5 });
+    const d = createDirectionState({ followRate: 0.6, decayHalfLifeSec: 150, settleMass: 2.5 });
     directionRef.current = d;
     sensorRef.current = createHeadPoseSensor({ push: d.pushEvidence, mark: d.markEvent });
     paramsRef.current = null;
