@@ -158,19 +158,27 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
   }, [scene]);
   const bones = useMemo(() => { const b = {}; model.traverse((o) => { if (o.isBone) b[o.name] = o; }); return b; }, [model]);
   const rest = useRef(null); // 앉기 시작한 프레임의 뼈 쿼터니언(믹서가 쓴 정지 프레임)
+  const blend = useRef(0);   // 0 = 서 있음, 1 = 앉음. 0.7초에 걸쳐 오간다 — 앉기·일어서기가 툭 바뀌지 않게
+  const actionRef = useRef(null);
   const { actions } = useAnimations(animations, model);
+  const holdFrame = (a) => { a.stopFading(); a.setEffectiveWeight(1); a.play(); a.paused = true; a.time = 0.35; }; // 두 다리가 모이는 프레임
   useEffect(() => {
     const name = Object.keys(actions)[0];
     const a = name ? actions[name] : null;
+    actionRef.current = a;
     if (!a) return;
-    if (walking && !seated) { a.paused = false; a.reset().fadeIn(0.2).play(); }
-    else { a.play(); a.paused = true; a.time = 0.35; } // 0.35s: 두 다리가 모이는 프레임 — 서 있기·앉기의 바탕
-    rest.current = null;
+    if (walking && !seated && blend.current <= 0) { a.paused = false; a.reset().fadeIn(0.2).play(); }
+    else holdFrame(a); // 앉음 · 서 있음 · 일어서는 중(블렌드가 0이 되면 useFrame 이 걷기를 시작한다)
+    if (seated) rest.current = null;
     return () => { a.fadeOut(0.2); };
   }, [actions, walking, seated]);
   // useAnimations 의 useFrame(믹서 갱신)이 먼저 돌고 이 콜백이 돈다 — 정지 프레임 위에 앉은 자세를 얹는다
-  useFrame((state) => {
-    if (!seated) { model.position.y = 0; rest.current = null; return; }
+  useFrame((state, dt) => {
+    const target = seated ? 1 : 0, prev = blend.current;
+    const k = target > prev ? Math.min(1, prev + dt / 0.7) : Math.max(0, prev - dt / 0.7);
+    blend.current = k;
+    if (prev > 0 && k <= 0 && walking && actionRef.current) { const a = actionRef.current; a.paused = false; a.reset().fadeIn(0.2).play(); }
+    if (k <= 0) { model.position.y = 0; rest.current = null; return; }
     const breath = Math.sin(state.clock.elapsedTime * 1.25) * 0.025; // 숨쉬기 — 척추가 살짝 펴졌다 굽는다
     // 머리 look-at — 리그의 정면(+z) 방위와 머리→카메라 방위의 차를 시선 접촉률만큼
     let headYaw = 0;
@@ -195,10 +203,10 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
       if (!b || !Array.isArray(r) || !q0) continue;
       const dz = name === "Spine" ? breath : name === "Head" ? -breath * 0.6 : 0;
       const dy = name === "Head" ? headYaw : 0;
-      tmpQ.setFromEuler(tmpE.set(r[0], r[1] + dy, r[2] + dz));
+      tmpQ.setFromEuler(tmpE.set(r[0] * k, (r[1] + dy) * k, (r[2] + dz) * k));
       b.quaternion.copy(q0).multiply(tmpQ);
     }
-    model.position.y = pose.seatY - rest.current.hipY; // 골반이 좌면 높이에 오도록 내린다
+    model.position.y = (pose.seatY - rest.current.hipY) * k; // 골반이 좌면 높이에 오도록 내린다
   });
   return <primitive object={model} scale={scale} rotation={[0, facing, 0]} />;
 }
