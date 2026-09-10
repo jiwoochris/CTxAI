@@ -41,7 +41,7 @@ export const ANCHORS = {
     roadColor: [0.95, 0.78, 0.60], roadGloss: 0.9,
     neonColor: [1.0, 0.60, 0.24], neonIntensity: 1.0,
     cafeGlow: 1.0, lampOn: 0.0,
-    npcDistance: 0.55, npcGaze: 0.75, npcSilence: 0.6, npcVolume: 1.0, npcSway: 0.5, npcLean: 0.15,
+    npcDistance: 0.7, npcGaze: 0.75, npcSilence: 0.6, npcVolume: 1.0, npcSway: 0.5, npcLean: 0.15,
     envIntensity: 0.9, skyExposureR: 0.5, skyExposureH: 0.42, skyExposureC: 0.55,
   },
   H: {

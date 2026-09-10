@@ -107,6 +107,24 @@ function Person({ raincoat = true, tint = "#4a5b6a", head = "#c9b7a3", scale = 1
 // 오면 이 컴포넌트만 바꾼다. 여러 명이 같은 GLB를 쓰므로 SkeletonUtils.clone 으로 복제한다.
 export const RIG_URLS = { A: "/reactive/models/rigA.glb", B: "/reactive/models/rigB.glb" };
 
+// 후드/머릿수건 — v2.md §1-2 "후드가 얼굴 대부분을 가리고 있어 성별과 나이를 정확히 알 수 없다".
+// 임시 리깅(Meshy)의 얼굴이 근접 거리에서 어색한 것도 함께 가린다. 머리 뼈에 붙이지 않고
+// 인물 그룹의 머리 높이에 둔다 — 착석·정지 상태에서는 머리가 거의 움직이지 않는다.
+function Hood({ color = "#3f4a58", y = 1.58, scale = 1 }) {
+  return (
+    <group position={[0, y, 0]} scale={scale}>
+      <mesh castShadow>
+        <sphereGeometry args={[0.19, 16, 12, Math.PI * 0.62, Math.PI * 1.76, 0, Math.PI * 0.72]} />
+        <meshStandardMaterial color={color} roughness={0.85} side={2} />
+      </mesh>
+      <mesh position={[0, -0.16, 0.02]} castShadow>
+        <coneGeometry args={[0.24, 0.34, 14, 1, true]} />
+        <meshStandardMaterial color={color} roughness={0.85} side={2} />
+      </mesh>
+    </group>
+  );
+}
+
 function RiggedPerson({ rig = "A", walking = false, scale = 1, facing = 0 }) {
   const { scene, animations } = useGLTF(RIG_URLS[rig] || RIG_URLS.A, false, true);
   const model = useMemo(() => {
@@ -752,6 +770,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
           {useRig ? (
             <Suspense fallback={<Person raincoat tint="#5d6f82" walking={actors.figure.walking} bob={actors.figure.bob} scale={0.95} />}>
               <RiggedPerson rig="A" walking={actors.figure.walking} scale={0.98} facing={0} />
+              <Hood color="#4a5668" y={1.6} />
             </Suspense>
           ) : (
             <Person raincoat tint="#5d6f82" walking={actors.figure.walking} bob={actors.figure.bob} scale={0.95} />
@@ -768,6 +787,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
               {/* 시선 접촉률은 몸 전체가 관객 쪽으로 도는 정도로 나타낸다 — 착석 상태에선 관객(-x 쪽)을 향하는 각도가 -π/2 */}
               <group ref={npcGaze} position={[0, 1.55, 0]} />
               <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} />
+              <Hood color={dominant === "C" ? "#8a6a5a" : dominant === "H" ? "#46525f" : "#4a5668"} y={dominant === "C" ? 1.42 : 1.6} scale={dominant === "C" ? 0.95 : 1} />
             </Suspense>
           ) : (
           <Person
