@@ -115,14 +115,14 @@ function DesktopGaze({ controlsRef, actorsRef, filmRef }) {
   const session = useXR((xr) => xr.session);
   const manualUntil = useRef(0);
   const dir = useMemo(() => new Vector3(), []);
-  useEffect(() => {
-    const c = controlsRef.current; if (!c) return;
-    const onStart = () => { manualUntil.current = performance.now() + 8000; };
-    c.addEventListener("start", onStart);
-    return () => c.removeEventListener("start", onStart);
-  }, [controlsRef]);
+  // OrbitControls 는 이 컴포넌트보다 뒤에 마운트되므로(형제, JSX 순서) 마운트 효과에서는 ref 가 비어 있다 —
+  // 첫 프레임에 한 번 붙이고, 언마운트 때 뗀다.
+  const attached = useRef(null);
+  const onStart = useMemo(() => () => { manualUntil.current = performance.now() + 8000; }, []);
+  useEffect(() => () => { attached.current?.removeEventListener("start", onStart); attached.current = null; }, [onStart]);
   useFrame((state, dt) => {
     const film = filmRef.current; const c = controlsRef.current;
+    if (c && attached.current !== c) { attached.current?.removeEventListener("start", onStart); c.addEventListener("start", onStart); attached.current = c; }
     if (session || !c || !film.running) { film.autoGaze = false; return; }
     const actors = actorsRef.current;
     const tune = (typeof window !== "undefined" && window.__gaze) || {}; // 점검용 덮어쓰기 {npc, bus, pitch} (rad)
