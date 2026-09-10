@@ -18,7 +18,7 @@ async function targets() { return (await fetch(`${base}/json`)).json(); }
 function connect(wsUrl) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
-    let id = 0; const pending = new Map();
+    let id = 0; const pending = new Map(); const listeners = new Map();
     ws.onopen = () => resolve({
       send(method, params = {}) {
         return new Promise((res, rej) => {
@@ -26,6 +26,7 @@ function connect(wsUrl) {
           ws.send(JSON.stringify({ id: mid, method, params }));
         });
       },
+      on(method, fn) { listeners.set(method, fn); },
       close() { ws.close(); },
     });
     ws.onerror = (e) => reject(new Error("ws error " + (e.message || "")));
@@ -34,7 +35,7 @@ function connect(wsUrl) {
       if (d.id && pending.has(d.id)) {
         const p = pending.get(d.id); pending.delete(d.id);
         d.error ? p.rej(new Error(d.error.message)) : p.res(d.result);
-      }
+      } else if (d.method && listeners.has(d.method)) listeners.get(d.method)(d.params);
     };
   });
 }
@@ -63,6 +64,30 @@ if (cmd === "open") {
   const r = await fetch(`${base}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
   const t = await r.json();
   console.log(t.id);
+} else if (cmd === "screencast") {
+  // 영상용 연속 프레임: screencast <port> <targetId> <dir> <seconds> [fps]  → dir/000001.jpg … + dir/times.txt (초)
+  // 끝나면 ffmpeg 로 합친다: ffmpeg -framerate <fps> -i dir/%06d.jpg -c:v libx264 -pix_fmt yuv420p out.mp4
+  const [targetId, dir, seconds, fpsArg] = rest;
+  const fps = Number(fpsArg) || 12;
+  fs.mkdirSync(dir, { recursive: true });
+  const c = await attach(targetId);
+  await c.send("Page.enable");
+  let n = 0; const t0 = Date.now(); let last = 0;
+  const times = fs.createWriteStream(path.join(dir, "times.txt"));
+  c.on("Page.screencastFrame", (p) => {
+    const now = Date.now();
+    if (now - last >= 1000 / fps - 5) { // fps 상한으로 솎아낸다
+      n++; fs.writeFileSync(path.join(dir, String(n).padStart(6, "0") + ".jpg"), Buffer.from(p.data, "base64"));
+      times.write(`${n}\t${((now - t0) / 1000).toFixed(3)}\n`); last = now;
+    }
+    c.send("Page.screencastFrameAck", { sessionId: p.sessionId }).catch(() => {});
+  });
+  await c.send("Page.startScreencast", { format: "jpeg", quality: 85, everyNthFrame: 1 });
+  await sleep(Number(seconds) * 1000);
+  await c.send("Page.stopScreencast").catch(() => {});
+  times.end();
+  console.log(`${n} frames in ${((Date.now() - t0) / 1000).toFixed(1)}s → ${dir}`);
+  c.close();
 } else if (cmd === "drag") {
   // 마우스 드래그 (OrbitControls 로 고개 돌리기): drag <port> <targetId> x1 y1 x2 y2
   const [targetId, x1, y1, x2, y2] = rest;
