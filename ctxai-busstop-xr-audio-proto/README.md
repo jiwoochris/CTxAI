@@ -13,7 +13,11 @@ KAIST CTxAI 캡스톤 7조 <버스 정류장>의 팀 도구이자 체험 프로�
 | `/story` | 장르 하나를 확정하는 v1 | 구버전 |
 
 `/film` URL 옵션: `?speed=3`(영화 시간 배속) · `?scene=240`(장면 목표 길이 초) · `?cam=0`(웹캠 채널 끄기) · `?hud=0`(HUD 숨김) · `?voice=1`(음성 채널) · `?voicefake=horror`(마이크 대신 샘플) ·
-`?rig=0`(리깅 캐릭터 대신 캡슐) · `?fx=0`(후처리·도로 반사 끄기, Quest 성능 점검) · `?pool=1`(대사 변주 풀) · `?bias=H:2.5`(강제 배합, 발표·QA용) · `?rigtest=1`(캐릭터 점검)
+`?rig=0`(리깅 캐릭터 대신 캡슐) · `?fx=0`(후처리·도로 반사 끄기, Quest 성능 점검) · `?pool=1`(대사 변주 풀) · `?bias=H:2.5`(강제 배합, 발표·QA용) · `?rigtest=1`(캐릭터 서기·앉기 점검) ·
+`?auto=1`(게이트 없이 1.5초 뒤 자동 시작) · `?gaze=0`(데스크톱 자동 시선 끄기 — 기본은 옆사람이 앉으면 카메라가 오른쪽으로 돈다)
+
+헤드리스 관찰: `node scripts/cdp.mjs open 9224 "http://localhost:3017/film?auto=1&cam=0"` 로 탭을 열고 `loop 9224 <id> shots/run 5 54` 로 5초마다 PNG·HUD 텍스트를 남긴다
+(크롬은 `--headless=new --remote-debugging-port=9224 --user-data-dir=/tmp/chrome-film2 --window-size=1600,900` 으로 띄운다). `drag` 로 고개를 돌리고 `shot` 으로 한 장 찍는다.
 
 설계와 매핑표, 남은 일은 [`Bus/규격/반응형_실시간_영화.md`](../Bus/규격/반응형_실시간_영화.md).
 

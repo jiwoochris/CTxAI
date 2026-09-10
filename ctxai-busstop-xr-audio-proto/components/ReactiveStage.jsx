@@ -256,6 +256,16 @@ function usePbr(id, repeat) {
   return { map, normalMap, roughnessMap, aoMap };
 }
 
+function Sidewalk({ position, size, repeat }) {
+  const tex = usePbr("brick_pavement_02", repeat);
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={position} receiveShadow>
+      <planeGeometry args={size} />
+      <meshStandardMaterial {...tex} color="#b9b6ae" roughness={0.9} normalScale={[0.6, 0.6]} />
+    </mesh>
+  );
+}
+
 function RoadSurface({ roadMat, reflect }) {
   const tex = usePbr("asphalt_02", [16, 3.2]);
   return (
@@ -754,20 +764,18 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       )}>
         <RoadSurface roadMat={roadMat} reflect={reflect} />
       </Suspense>
-      {/* 인도(정류장 앞)와 연석 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -1.3]} receiveShadow>
-        <planeGeometry args={[44, 3.4]} />
-        <meshStandardMaterial color="#5a5b57" roughness={0.95} />
-      </mesh>
+      {/* 인도(정류장 앞)와 연석 — PolyHaven brick_pavement_02 보도블록 */}
+      <Suspense fallback={<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -1.3]} receiveShadow><planeGeometry args={[44, 3.4]} /><meshStandardMaterial color="#5a5b57" roughness={0.95} /></mesh>}>
+        <Sidewalk position={[0, 0.01, -1.3]} size={[44, 3.4]} repeat={[22, 1.7]} />
+      </Suspense>
       <mesh position={[0, 0.06, -3.0]} receiveShadow>
         <boxGeometry args={[44, 0.12, 0.18]} />
         <meshStandardMaterial color="#8a8c88" roughness={0.9} />
       </mesh>
       {/* 건너편 인도 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -18.2]} receiveShadow>
-        <planeGeometry args={[70, 2.4]} />
-        <meshStandardMaterial color="#5a5b57" roughness={0.95} />
-      </mesh>
+      <Suspense fallback={null}>
+        <Sidewalk position={[0, 0.01, -18.2]} size={[70, 2.4]} repeat={[35, 1.2]} />
+      </Suspense>
       {/* 중앙 이중 황색선 · 차선 점선 */}
       {[-0.07, 0.07].map((dz) => (
         <mesh key={dz} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, -10 + dz]}>
