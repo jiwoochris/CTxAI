@@ -10,3 +10,4 @@ storage/
 assets/vo/
 .vercel-token
 .env*
+data/sessions/

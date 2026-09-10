@@ -17,7 +17,7 @@
 // 인프라: Supabase·Vercel·ElevenLabs 없이 동작한다. 오디오는 public/reactive/audio
 // (scripts/pull-assets.mjs 로 받은 로컬 파일)에서만 읽는다.
 //
-// URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김)
+// URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기)
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -108,7 +108,8 @@ function TrajectoryChart({ trajectory, events }) {
       {marks.map((m, i) => (
         <g key={i}>
           <line x1={x(m.t)} x2={x(m.t)} y1={PAD} y2={H - PAD} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
-          <text x={x(m.t) + 3} y={PAD + 10} fill="rgba(255,255,255,0.45)" fontSize="9">{m.detail?.name}</text>
+          {/* 사건이 초반 1분에 몰려 있어 라벨을 위아래로 번갈아 놓는다 */}
+          <text x={x(m.t) + 3} y={PAD + 10 + (i % 3) * 11} fill="rgba(255,255,255,0.45)" fontSize="9">{m.detail?.name}</text>
         </g>
       ))}
       <path d={path("R")} fill="none" stroke={GENRE_META.R.accent} strokeWidth="2" />
@@ -124,6 +125,7 @@ export default function FilmPage() {
   const speed = Math.max(0.25, Math.min(6, Number(q.speed) || 1));
   const useCam = q.cam !== "0";
   const showHud = q.hud !== "0";
+  const useRig = q.rig !== "0"; // ?rig=0 이면 리깅 캐릭터 대신 캡슐 실루엣
 
   const [phase, setPhase] = useState("gate"); // gate | intro | scene | bus | end
   const [hud, setHud] = useState(null);
@@ -333,10 +335,29 @@ export default function FilmPage() {
     setPhase("gate"); setHud(null); setLine(null); setCaption(""); setDominant(null); setCamStatus("off");
   }
 
-  function downloadSession() {
+  function sessionData(extra = {}) {
     const d = directionRef.current;
-    if (!d) return;
-    const data = d.exportSession({ dominant: filmRef.current.dominant, speed, headPose: sensorRef.current?.report?.() });
+    if (!d) return null;
+    return d.exportSession({ dominant: filmRef.current.dominant, speed, headPose: sensorRef.current?.report?.(), ...extra });
+  }
+
+  // 종료 시 자동 저장 (data/sessions/, Supabase 아님). 실패해도 체험은 영향 없다.
+  const [savedId, setSavedId] = useState(null);
+  const [selfReport, setSelfReport] = useState(null);
+  async function saveSession(extra = {}) {
+    const data = sessionData(extra);
+    if (!data) return;
+    try {
+      const r = await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
+      const j = await r.json();
+      if (j?.ok) setSavedId(j.id);
+    } catch { /* 로컬 저장 실패는 무시 */ }
+  }
+  useEffect(() => { if (phase === "end") { setSelfReport(null); saveSession(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [phase]);
+
+  function downloadSession() {
+    const data = sessionData({ selfReport });
+    if (!data) return;
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -357,7 +378,7 @@ export default function FilmPage() {
         <Canvas shadows>
           <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} />
+            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} />
             <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
           </XR>
           <OrbitControls target={[0, 1.15, -4]} enableZoom={false} enablePan={false} enableDamping dampingFactor={0.08} rotateSpeed={0.5} />
@@ -461,6 +482,19 @@ export default function FilmPage() {
             <div className={f.legend}>
               {["R", "H", "C"].map((g) => <span key={g}><i style={{ background: GENRE_META[g].accent }} />{GENRE_META[g].label}</span>)}
               <span><i style={{ background: "rgba(255,255,255,0.35)" }} />정착도</span>
+            </div>
+            {/* 파일럿용 자기보고 — "당신이 느낀 정류장은?" 시스템 판정과의 일치율 재료 */}
+            <div className={f.legend} style={{ justifyContent: "center", alignItems: "center", gap: 8 }}>
+              <span>당신이 느낀 정류장은?</span>
+              {["R", "H", "C"].map((g) => (
+                <button
+                  key={g}
+                  className={f.endBtn}
+                  style={{ padding: "5px 12px", borderColor: selfReport === g ? GENRE_META[g].accent : undefined, color: selfReport === g ? GENRE_META[g].accent : undefined }}
+                  onClick={() => { setSelfReport(g); saveSession({ selfReport: g }); }}
+                >{GENRE_META[g].label}</button>
+              ))}
+              {savedId && <span className={s.dim} style={{ fontSize: 11 }}>· 저장됨</span>}
             </div>
             <div className={f.endActions}>
               <button className={`${f.endBtn} ${f.endBtnMain}`} onClick={() => { reset(); setTimeout(start, 50); }}>다시 앉기</button>

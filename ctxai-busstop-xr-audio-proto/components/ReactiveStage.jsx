@@ -10,9 +10,11 @@
 // 사람은 캡슐+구, 우비는 원뿔, 고양이는 상자 두 개. 자리를 잡아 두는 것이 목적이라
 // 나중에 GLB가 오면 같은 그룹 안에서 메시만 바꾸면 된다.
 
-import { useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, useAnimations } from "@react-three/drei";
 import { Color, Vector3, FogExp2, BackSide, MathUtils } from "three";
+import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Cypress, RoundPine, Reeds, ForestRing, Shelter, Bench, Cafe } from "./BlockoutStage";
 import { deriveParams } from "@/lib/directionMap";
 
@@ -68,6 +70,32 @@ function Person({ raincoat = true, tint = "#4a5b6a", head = "#c9b7a3", scale = 1
       </group>
     </group>
   );
+}
+
+// 리깅된 사람 — 시그마인 vr_contents의 Meshy 캐릭터(걷기 클립 1개)를 1K 텍스처 + meshopt로
+// 5~7MB까지 줄인 것. public/reactive/models/rigA.glb·rigB.glb. Draco가 아니라 meshopt를 쓴
+// 이유는 디코더가 three-stdlib에 내장돼 있어 전시장에서 CDN 없이 돌기 때문이다.
+// 앉기 클립이 없어 착석 상태에서는 걷기 클립을 멈춘 자세로 벤치 옆에 선다 — 아트 GLB가
+// 오면 이 컴포넌트만 바꾼다. 여러 명이 같은 GLB를 쓰므로 SkeletonUtils.clone 으로 복제한다.
+export const RIG_URLS = { A: "/reactive/models/rigA.glb", B: "/reactive/models/rigB.glb" };
+
+function RiggedPerson({ rig = "A", walking = false, scale = 1, facing = 0 }) {
+  const { scene, animations } = useGLTF(RIG_URLS[rig] || RIG_URLS.A, false, true);
+  const model = useMemo(() => {
+    const c = skeletonClone(scene);
+    c.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+    return c;
+  }, [scene]);
+  const { actions } = useAnimations(animations, model);
+  useEffect(() => {
+    const name = Object.keys(actions)[0];
+    const a = name ? actions[name] : null;
+    if (!a) return;
+    if (walking) { a.paused = false; a.reset().fadeIn(0.2).play(); }
+    else { a.play(); a.paused = true; a.time = 0.35; }
+    return () => { a.fadeOut(0.2); };
+  }, [actions, walking]);
+  return <primitive object={model} scale={scale} rotation={[0, facing, 0]} />;
 }
 
 function Truck({ x, z }) {
@@ -178,7 +206,7 @@ function Bus({ x, z, headlight, doorOpen }) {
  * @param {string|null} props.dominant                 앉는 인물 R/H/C
  * @param {React.MutableRefObject} [props.paramsOut]   파생 파라미터를 밖(HUD)에 노출
  */
-export default function ReactiveStage({ directionRef, actorsRef, dominant, paramsOut }) {
+export default function ReactiveStage({ directionRef, actorsRef, dominant, paramsOut, useRig = true, rigTest = false }) {
   const { scene, camera } = useThree();
   const skyMat = useRef();
   const sun = useRef();
@@ -263,6 +291,11 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       const gazeYaw = MathUtils.lerp(0, targetYaw, p.npcGaze);
       const sway = Math.sin(st.elapsed * 1.7) * 0.08 * p.npcSway;
       npcGaze.current.rotation.y += (gazeYaw + sway - npcGaze.current.rotation.y) * Math.min(1, dt * 3);
+      if (useRig && actors.npc.seated) {
+        // 리깅 캐릭터: 몸 전체를 시선 접촉률만큼 관객 쪽으로. 0.15(기본) ↔ 관객을 정면으로 보는 각도.
+        const bodyTarget = MathUtils.lerp(0.1, Math.PI / 2 * 0.9, p.npcGaze) + sway;
+        npcGroup.current.rotation.y += (bodyTarget - npcGroup.current.rotation.y) * Math.min(1, dt * 1.5);
+      }
     }
     if (posterRef.current) posterRef.current.rotation.z = 0.06 + (actors.posterFlutter || 0) * 0.35;
     if (fadeMat.current) fadeMat.current.opacity = actors.fade || 0;
@@ -404,10 +437,23 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
         <pointLight ref={lampLight2} position={[0, 2.9, 0.42]} color="#ffedb0" intensity={0} distance={5} />
       </group>
 
+      {/* 리깅 캐릭터 점검용 (?rigtest=1): 두 캐릭터를 관객 정면 3m에 세워 로딩·크기·방향을 확인한다 */}
+      {rigTest && (
+        <Suspense fallback={null}>
+          <group position={[-0.7, 0, -3]}><RiggedPerson rig="A" walking facing={0} /></group>
+          <group position={[0.7, 0, -3]}><RiggedPerson rig="B" walking={false} facing={0} /></group>
+        </Suspense>
+      )}
       {/* ---- 배우 ---- */}
       {actors.figure?.visible && (
-        <group position={[actors.figure.x, 0, actors.figure.z]} rotation={[0, Math.PI * 0.35, 0]}>
-          <Person raincoat tint="#5d6f82" walking={actors.figure.walking} bob={actors.figure.bob} scale={0.95} />
+        <group position={[actors.figure.x, 0, actors.figure.z]} rotation={[0, 0.7, 0]}>
+          {useRig ? (
+            <Suspense fallback={<Person raincoat tint="#5d6f82" walking={actors.figure.walking} bob={actors.figure.bob} scale={0.95} />}>
+              <RiggedPerson rig="A" walking={actors.figure.walking} scale={0.98} facing={0} />
+            </Suspense>
+          ) : (
+            <Person raincoat tint="#5d6f82" walking={actors.figure.walking} bob={actors.figure.bob} scale={0.95} />
+          )}
         </group>
       )}
       {actors.truck?.visible && <Truck x={actors.truck.x} z={actors.truck.z} />}
@@ -415,6 +461,13 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       {actors.cat?.visible && <Cat {...actors.cat} />}
       {actors.npc?.visible && (
         <group ref={npcGroup} position={[actors.npc.x, 0, actors.npc.z]} rotation={[0, actors.npc.seated ? 0.15 : -Math.PI * 0.45, 0]}>
+          {useRig ? (
+            <Suspense fallback={<Person raincoat={dominant !== "C"} tint={npcTint} head={npcHead} walking={actors.npc.walking} seated={actors.npc.seated} bob={actors.npc.bob} gazeRef={npcGaze} />}>
+              {/* 시선 접촉률은 몸 전체가 관객 쪽으로 도는 정도로 나타낸다 — 착석 상태에선 관객(-x 쪽)을 향하는 각도가 -π/2 */}
+              <group ref={npcGaze} position={[0, 1.55, 0]} />
+              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} />
+            </Suspense>
+          ) : (
           <Person
             raincoat={dominant !== "C"}
             tint={npcTint}
@@ -425,6 +478,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
             lean={paramsOut?.current?.npcLean || 0}
             gazeRef={npcGaze}
           />
+          )}
           {dominant === "C" && (
             <mesh position={[0.25, 0.45, 0.1]} rotation={[0, 0, -0.2]}>
               <cylinderGeometry args={[0.012, 0.012, 0.9, 6]} />

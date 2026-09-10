@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "film": "env -u NODE_ENV -u TURBOPACK next dev",
+    "build:clean": "env -u NODE_ENV -u TURBOPACK next build",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
