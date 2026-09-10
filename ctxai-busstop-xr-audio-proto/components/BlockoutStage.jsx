@@ -328,3 +328,7 @@ export default function BlockoutStage({ genre }) {
     </>
   );
 }
+
+// /film(반응형 실시간 영화)의 ReactiveStage가 같은 지형을 재사용한다 — 3D_배경_구성_기획.md
+// §2 "지형은 한 번 정하면 장르 불문 고정" 원칙. 장르별로는 하늘·빛만 바뀐다.
+export { Cypress, RoundPine, Reeds, ForestRing, StreetLamp, Shelter, Bench, Cafe, MOODS };

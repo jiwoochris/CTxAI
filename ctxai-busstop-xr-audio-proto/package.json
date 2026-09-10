@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "milestones": "node scripts/gen-milestones.mjs",
-    "synthesize-dialogue": "node scripts/synthesize-dialogue.mjs"
+    "synthesize-dialogue": "node scripts/synthesize-dialogue.mjs",
+    "pull-assets": "node scripts/pull-assets.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
