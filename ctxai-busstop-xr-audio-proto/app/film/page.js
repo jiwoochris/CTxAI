@@ -18,6 +18,7 @@
 // (scripts/pull-assets.mjs 로 받은 로컬 파일)에서만 읽는다.
 //
 // URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기)
+//           ?pool=1 (대사 풀 모드 — 원문 46줄 대신 상태에 따라 보조 장르 변주를 줄마다 고른다. 목소리는 OpenRouter 합성)
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -31,6 +32,7 @@ import { deriveBgmGains, TRIGGERS } from "@/lib/directionMap";
 import { CUES, T, evalActors } from "@/lib/filmTimeline";
 import { DIALOGUE_V2_LINES, DIALOGUE_V2_GENRE_LABEL } from "@/lib/dialogueV2Lines";
 import { observe, judgeFromBehavior } from "@/lib/behaviorSense";
+import { loadDialoguePool, pickPoolLine, poolCoverage } from "@/lib/dialoguePool";
 import s from "../story/story.module.css";
 import f from "./film.module.css";
 
@@ -126,6 +128,9 @@ export default function FilmPage() {
   const useCam = q.cam !== "0";
   const showHud = q.hud !== "0";
   const useRig = q.rig !== "0"; // ?rig=0 이면 리깅 캐릭터 대신 캡슐 실루엣
+  const usePool = q.pool === "1"; // 대사 풀 모드 (lib/dialoguePool.js)
+  const poolRef = useRef(null);
+  useEffect(() => { if (usePool) loadDialoguePool().then((p) => { poolRef.current = p; }); }, [usePool]);
 
   const [phase, setPhase] = useState("gate"); // gate | intro | scene | bus | end
   const [hud, setHud] = useState(null);
@@ -279,11 +284,28 @@ export default function FilmPage() {
     const base = DIALOGUE_V2_LINES.filter((l) => l.genre === dom);
     let insertedCallback = false;
 
+    const pool = usePool ? poolRef.current : null;
+    const poolOk = !!pool?.ok && poolCoverage(pool, dom).base === base.length;
+
     for (let i = 0; i < base.length; i++) {
       if (abortRef.current.aborted) return;
       const p = paramsRef.current || {};
-      // 보조 장르 콜백 — 비중이 임계값을 넘는 순간 한 번, 그 장르의 첫 줄을 끼워 넣는다
       const { secondary, secondaryWeight } = rank(d.st.current);
+
+      if (poolOk) {
+        // 풀 모드: 이 줄을 재생하기 직전의 상태로 원문/보조 장르 변주를 고른다 (근접 매칭).
+        const l = base[i];
+        const pick = pickPoolLine(pool, dom, l.seq, d.st.current);
+        if (pick) {
+          d.markEvent("line", { seq: l.seq, secondary: pick.secondary, weight: Math.round(pick.weight * 100) / 100 });
+          setLine({ ...l, text: pick.text, tinted: pick.secondary, index: i, total: base.length });
+          await playFile(pick.file.replace(`${AUDIO_BASE}/`, ""), Math.min(1, p.npcVolume ?? 1));
+          await wait(((paramsRef.current?.npcSilence ?? 1.2) * 1000) / speed);
+          continue;
+        }
+      }
+
+      // 보조 장르 콜백 — 비중이 임계값을 넘는 순간 한 번, 그 장르의 첫 줄을 끼워 넣는다
       if (!insertedCallback && i >= 2 && secondary !== dom && secondaryWeight >= TRIGGERS.secondaryCallback.above) {
         const cb = DIALOGUE_V2_LINES.find((l) => l.genre === secondary && l.seq === "01");
         if (cb) {
@@ -464,6 +486,7 @@ export default function FilmPage() {
               <span className={s.seqBadge}>{line.genre}-{line.seq}</span>
               <span>{line.index + 1} / {line.total}줄</span>
               {line.flavor && <span className={s.dim}>· 배합 콜백 ({DIALOGUE_V2_GENRE_LABEL[line.genre]})</span>}
+              {line.tinted && <span className={s.dim}>· {DIALOGUE_V2_GENRE_LABEL[line.tinted]} 변주</span>}
             </div>
             <p className={s.lineText}>{line.text}</p>
           </div>
