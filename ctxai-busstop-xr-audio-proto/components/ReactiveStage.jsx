@@ -352,6 +352,29 @@ function SkyDome({ skyMat, envOut }) {
 }
 
 // 찢어진 포스터 — v2.md §1-1. 아래 절반이 찢겨 나가고 "…찾습니다" "…사례합니다"만 남은 종이.
+// 버스 행선지판 — 앞: 검정 바탕 주황 LED "272 호수공원", 옆: 흰 바탕 "272 · 호수공원 ↔ 시청"
+function useBusSignTextures() {
+  return useMemo(() => {
+    if (typeof document === "undefined") return { front: null, side: null };
+    const make = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const tx = new CanvasTexture(c); tx.colorSpace = SRGBColorSpace; tx.anisotropy = 4; return tx; };
+    const font = 'Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
+    const front = make(768, 160, (g, w, h) => {
+      g.fillStyle = "#0b0c0e"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#ff9a3d"; g.textAlign = "left"; g.textBaseline = "middle";
+      g.font = `bold ${Math.round(h * 0.72)}px ${font}`; g.fillText("272", 28, h / 2 + 4);
+      g.font = `bold ${Math.round(h * 0.5)}px ${font}`; g.fillText("호수공원", 300, h / 2 + 4);
+    });
+    const side = make(768, 180, (g, w, h) => {
+      g.fillStyle = "#f2f4f6"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#1f4f86"; g.fillRect(0, h - 16, w, 16);
+      g.fillStyle = "#1a1d22"; g.textAlign = "left"; g.textBaseline = "middle";
+      g.font = `bold ${Math.round(h * 0.62)}px ${font}`; g.fillText("272", 26, h / 2);
+      g.font = `${Math.round(h * 0.3)}px ${font}`; g.fillStyle = "#2a2f36"; g.fillText("호수공원 ↔ 시청", 290, h / 2 - 10);
+    });
+    return { front, side };
+  }, []);
+}
+
 function usePosterTexture() {
   return useMemo(() => {
     if (typeof document === "undefined") return null;
@@ -443,11 +466,24 @@ function Truck({ x, z }) {
   );
 }
 
+function useRadialTexture() {
+  return useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grad.addColorStop(0, "rgba(255,255,255,0.9)"); grad.addColorStop(0.45, "rgba(255,255,255,0.35)"); grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+    return new CanvasTexture(c);
+  }, []);
+}
+
 function Splash({ p }) {
   // 0~1 — 트럭이 물웅덩이를 밟아 물보라가 관객 쪽(+z)으로 부채꼴처럼 튀어 오르는 순간. 물방울 36개 + 안개 스프라이트.
+  const mist = useRadialTexture();
   const drops = useMemo(() => Array.from({ length: 36 }, (_, i) => {
     const h = (k) => { const v = Math.sin((i + 1) * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
-    return { a: (h(0) - 0.5) * Math.PI * 1.1, s: 0.45 + h(1) * 0.9, up: 0.6 + h(2) * 0.9, r: 0.018 + h(3) * 0.035 };
+    return { a: (h(0) - 0.5) * Math.PI * 1.1, s: 0.45 + h(1) * 0.9, up: 0.6 + h(2) * 0.9, r: 0.01 + h(3) * 0.022 };
   }), []);
   const q = Math.min(1, p);
   const spread = q * 2.8;
@@ -457,13 +493,15 @@ function Splash({ p }) {
       {drops.map((d, i) => (
         <mesh key={i} position={[Math.sin(d.a) * spread * d.s, yArc * d.up * d.s, Math.cos(d.a) * spread * d.s * 0.9]}>
           <sphereGeometry args={[d.r * (1 - q * 0.4), 6, 6]} />
-          <meshPhysicalMaterial color="#dfe9ee" roughness={0.1} metalness={0.1} transparent opacity={Math.max(0, 0.95 - q * 0.85)} />
+          <meshPhysicalMaterial color="#c9d8e0" roughness={0.1} metalness={0.1} transparent opacity={Math.max(0, 0.75 - q * 0.7)} />
         </mesh>
       ))}
       {/* 물안개 — 카메라를 보는 스프라이트가 커지며 옅어진다 */}
-      <sprite position={[0, 0.35 + q * 0.6, 0.4 + q * 1.2]} scale={[1.2 + q * 2.6, 0.7 + q * 1.4, 1]}>
-        <spriteMaterial color="#e8f0f4" transparent opacity={0.38 * (1 - q)} depthWrite={false} />
-      </sprite>
+      {mist && (
+        <sprite position={[0, 0.35 + q * 0.6, 0.4 + q * 1.2]} scale={[1.2 + q * 2.6, 0.7 + q * 1.4, 1]}>
+          <spriteMaterial map={mist} color="#e8f0f4" transparent opacity={0.5 * (1 - q)} depthWrite={false} />
+        </sprite>
+      )}
     </group>
   );
 }
@@ -518,6 +556,7 @@ function Cat({ x, z, running, facingBench, bob }) {
 
 function Bus({ x, z, headlight, doorOpen }) {
   const body = "#2f5f93";
+  const signs = useBusSignTextures();
   return (
     <group position={[x, 0, z]}>
       {/* 차체 — 아래 몸통 + 위 몸통을 살짝 좁혀 둥근 인상 */}
@@ -552,10 +591,10 @@ function Bus({ x, z, headlight, doorOpen }) {
           </mesh>
         </group>
       ))}
-      {/* 옆 행선지판 (관객 쪽) */}
-      <mesh position={[-1.24, 1.2, -0.6]} rotation={[0, -Math.PI / 2, 0]}>
+      {/* 옆 행선지판 (관객 쪽, 앞문 뒤) */}
+      <mesh position={[-1.275, 1.2, 1.2]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[1.1, 0.26]} />
-        <meshStandardMaterial color="#f2f4f6" emissive="#f2f4f6" emissiveIntensity={0.25} />
+        {signs.side ? <meshStandardMaterial map={signs.side} emissiveMap={signs.side} emissive="#ffffff" emissiveIntensity={0.25} /> : <meshStandardMaterial color="#f2f4f6" />}
       </mesh>
       {/* 앞유리 */}
       <mesh position={[0, 2.05, 5.21]}>
@@ -564,7 +603,7 @@ function Bus({ x, z, headlight, doorOpen }) {
       </mesh>
       {/* 문 (관객 쪽, 왼쪽면) — 유리 두 짝, 열리면 안쪽으로 접힌 것처럼 얇아진다. 열린 문 안쪽엔 실내 불빛 */}
       {[2.12, 2.68].map((dz, i) => (
-        <group key={dz} position={[-1.23, 1.15, dz]}>
+        <group key={dz} position={[-1.255, 1.15, dz]}>
           <mesh>
             <boxGeometry args={[0.04, 2.0, doorOpen ? 0.1 : 0.52]} />
             <meshStandardMaterial color="#1a2735" metalness={0.4} roughness={0.5} />
@@ -578,7 +617,7 @@ function Bus({ x, z, headlight, doorOpen }) {
         </group>
       ))}
       {doorOpen && (
-        <mesh position={[-1.1, 1.1, 2.4]} rotation={[0, -Math.PI / 2, 0]}>
+        <mesh position={[-1.2, 1.1, 2.4]} rotation={[0, -Math.PI / 2, 0]}>
           <planeGeometry args={[1.0, 2.0]} />
           <meshStandardMaterial color="#ffe6c2" emissive="#ffd9a0" emissiveIntensity={0.9} />
         </mesh>
@@ -603,7 +642,7 @@ function Bus({ x, z, headlight, doorOpen }) {
       </mesh>
       <mesh position={[0, 2.62, 5.22]}>
         <planeGeometry args={[1.5, 0.3]} />
-        <meshStandardMaterial color="#ff9a3d" emissive="#ff8a2a" emissiveIntensity={1.6} />
+        {signs.front ? <meshStandardMaterial map={signs.front} emissiveMap={signs.front} emissive="#ffffff" emissiveIntensity={1.4} /> : <meshStandardMaterial color="#ff9a3d" emissive="#ff8a2a" emissiveIntensity={1.6} />}
       </mesh>
       {/* 전조등 */}
       {[-0.85, 0.85].map((dx) => (
