@@ -24,7 +24,7 @@
 //                     답에서 뽑은 명사를 정류장 이름 표지판에 쓴다. 요청서 v5.0 §2.6) · ?voicefake=romance (마이크 대신 샘플 파일)
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { XR, createXRStore, useXR } from "@react-three/xr";
 import { Euler, MathUtils } from "three";
@@ -32,7 +32,7 @@ import ReactiveStage from "@/components/ReactiveStage";
 import { createDirectionState, rank } from "@/lib/directionState";
 import { createHeadPoseSensor } from "@/lib/headPoseSense";
 import { deriveBgmGains, TRIGGERS } from "@/lib/directionMap";
-import { CUES, T, evalActors } from "@/lib/filmTimeline";
+import { CUES, evalActors } from "@/lib/filmTimeline";
 import { DIALOGUE_V2_LINES, DIALOGUE_V2_GENRE_LABEL } from "@/lib/dialogueV2Lines";
 import { observe, judgeFromBehavior } from "@/lib/behaviorSense";
 import { loadDialoguePool, pickPoolLine, poolCoverage } from "@/lib/dialoguePool";
@@ -155,7 +155,6 @@ export default function FilmPage() {
   const [line, setLine] = useState(null);
   const [dominant, setDominant] = useState(null);
   const [xrError, setXrError] = useState("");
-  const [session, setSession] = useState(null);
   const [camStatus, setCamStatus] = useState("off");
 
   const directionRef = useRef(null);
@@ -439,8 +438,7 @@ export default function FilmPage() {
   async function enterVr() {
     setXrError("");
     try {
-      const sess = await xrStore.enterVR();
-      setSession(sess || true);
+      await xrStore.enterVR();
     } catch { setXrError("VR 진입에 실패했습니다 — 헤드셋 연결과 브라우저의 WebXR 지원을 확인해 주세요."); }
   }
 
