@@ -101,7 +101,8 @@ export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null
     } else if (t < T.npcSeated) {
       const p = seg(t, turnAt, T.npcSeated);
       const x = lerp(seatX + 0.15, seatX, p), z = lerp(-1.25, 0.3, p);
-      a.npc = { visible: true, x, z, seated: false, walking: true, yaw: lerp(heading(0, 1), heading(-0.15, 1.55), p), bob: t };
+      // 벤치 앞에서 몸을 돌려(도로 쪽을 보며) 뒷걸음으로 앉는다 — 착석 yaw(π+0.15)와 이어져 툭 돌지 않는다
+      a.npc = { visible: true, x, z, seated: false, walking: true, yaw: lerp(heading(seatX + 6.15, 0.45), Math.PI + 0.15, p), bob: t };
     } else {
       a.npc = { visible: true, x: seatX, z: 0.3, seated: true, walking: false, yaw: Math.PI, bob: t };
     }

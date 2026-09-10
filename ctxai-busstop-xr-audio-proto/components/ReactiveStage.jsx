@@ -625,6 +625,11 @@ function Bus({ x, z, headlight, doorOpen }) {
         <boxGeometry args={[2.3, 0.14, 10.0]} />
         <meshStandardMaterial color="#d9dee3" metalness={0.3} roughness={0.5} />
       </mesh>
+      {/* 아래 스커트 — 서울 시내버스식 투톤(파랑 위·밝은 회백 아래)으로 옆면이 한 덩어리 파랑으로 보이지 않게 */}
+      <mesh position={[0, 0.52, 0]}>
+        <boxGeometry args={[2.52, 0.3, 10.42]} />
+        <meshStandardMaterial color="#cfd5db" metalness={0.5} roughness={0.4} />
+      </mesh>
       {/* 창 띠 (양쪽) — 어두운 반사 유리에 실내 온광이 약하게 비치고, 창틀 기둥이 1.3m 마다 선다 */}
       {[-1.22, 1.22].map((dx) => (
         <group key={dx}>
