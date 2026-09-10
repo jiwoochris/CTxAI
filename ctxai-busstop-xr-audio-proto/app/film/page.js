@@ -105,6 +105,13 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
   return null;
 }
 
+// XR 세션 여부를 페이지 상태로 올린다 — 헤드셋에서는 도로 반사(장면을 한 번 더 그림)도 꺼서 프레임을 지킨다.
+function XRProbe({ onChange }) {
+  const session = useXR((xr) => xr.session);
+  useEffect(() => { onChange(!!session); }, [session, onChange]);
+  return null;
+}
+
 // 후처리 — 블룸·비네트·ACES 톤매핑. WebXR 세션 중에는 컴포저가 스테레오 렌더와 충돌하므로 끈다.
 function Effects({ enabled }) {
   const session = useXR((xr) => xr.session);
@@ -155,6 +162,7 @@ export default function FilmPage() {
   // 침묵은 상태가 정한 값(npcSilence)을 하한으로 두고, 남는 시간을 줄 사이에 고르게 나눈다.
   const sceneTarget = Math.max(0, Number(q.scene) || 0);
   const fx = q.fx !== "0"; // ?fx=0 이면 후처리·도로 반사 끄기 (성능 점검용)
+  const [xrActive, setXrActive] = useState(false);
   const useVoice = q.voice === "1" || !!voiceFake;
   const [signText, setSignText] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("off");
@@ -513,7 +521,8 @@ export default function FilmPage() {
         <Canvas shadows="soft" gl={{ antialias: true }}>
           <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} reflect={fx} benchYaw={Number(q.benchyaw) || 0} />
+            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} reflect={fx && !xrActive} benchYaw={Number(q.benchyaw) || 0} />
+            <XRProbe onChange={setXrActive} />
             <Effects enabled={fx} />
             <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
           </XR>
