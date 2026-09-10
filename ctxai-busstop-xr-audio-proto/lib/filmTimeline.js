@@ -95,12 +95,12 @@ export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null
     const p = seg(t, busAt, busAt + 7);
     const z = lerp(-34, -0.4, p);
     const stopped = t >= busAt + 7;
-    a.bus = { visible: true, x: 1.7, z, stopped, doorOpen: stopped, headlight: 1 - p * 0.4 };
+    a.bus = { visible: true, x: 2.75, z, stopped, doorOpen: stopped, headlight: 1 - p * 0.4 }; // 차선 중앙(x≈2.75)에 정차 — 벤치에서 1.5m 떨어져 창과 문이 보인다
     // 인물 퇴장 — 공포: 벤치 뒤 풀숲으로 / 로맨스·코미디: 버스로
     if (stopped && a.npc.visible) {
       const q = seg(t, busAt + 8, busAt + 13);
       if (dominant === "H") a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.2, q), z: lerp(0.05, 3.2, q), bob: t, visible: q < 1 };
-      else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.1, q), z: lerp(0.05, -0.9, q), bob: t, visible: q < 0.98 };
+      else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.6, q), z: lerp(0.05, -0.9, q), bob: t, visible: q < 0.98 };
     }
     a.busLeaving = t >= busAt + 14 ? seg(t, busAt + 14, busAt + 20) : 0;
     if (a.busLeaving > 0) a.bus.z = lerp(-0.4, 12, a.busLeaving);

@@ -238,21 +238,48 @@ function SkyDome({ skyMat, envOut }) {
 function Truck({ x, z }) {
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, 0.7, 0]} castShadow>
-        <boxGeometry args={[1.7, 0.9, 3.6]} />
-        <meshStandardMaterial color="#8d9aa6" />
+      {/* 캡 */}
+      <mesh position={[0, 1.05, 1.35]} castShadow>
+        <boxGeometry args={[1.7, 1.3, 1.5]} />
+        <meshStandardMaterial color="#e6e9ec" metalness={0.5} roughness={0.35} />
       </mesh>
-      <mesh position={[0, 1.15, 1.1]} castShadow>
-        <boxGeometry args={[1.6, 0.8, 1.3]} />
-        <meshStandardMaterial color="#d8dde3" />
+      <mesh position={[0, 1.25, 2.11]}>
+        <boxGeometry args={[1.5, 0.7, 0.02]} />
+        <meshPhysicalMaterial color="#9fc3e6" metalness={0.2} roughness={0.05} transparent opacity={0.7} />
       </mesh>
-      {[[-0.7, -1.2], [0.7, -1.2], [-0.7, 1.1], [0.7, 1.1]].map(([dx, dz], i) => (
-        <mesh key={i} position={[dx, 0.3, dz]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.3, 0.3, 0.2, 10]} />
-          <meshStandardMaterial color="#1a1c1f" />
+      {/* 적재함 — 파란 방수포 */}
+      <mesh position={[0, 0.62, -0.75]} castShadow>
+        <boxGeometry args={[1.75, 0.35, 2.7]} />
+        <meshStandardMaterial color="#c9ccd0" metalness={0.5} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 1.05, -0.75]} castShadow>
+        <boxGeometry args={[1.65, 0.55, 2.5]} />
+        <meshStandardMaterial color="#2b5aa8" roughness={0.85} />
+      </mesh>
+      {/* 바퀴 */}
+      {[[-0.8, -1.4], [0.8, -1.4], [-0.8, 1.35], [0.8, 1.35]].map(([dx, dz], i) => (
+        <group key={i} position={[dx, 0.34, dz]} rotation={[0, 0, Math.PI / 2]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.34, 0.34, 0.24, 16]} />
+            <meshStandardMaterial color="#141517" roughness={0.9} />
+          </mesh>
+          <mesh>
+            <cylinderGeometry args={[0.15, 0.15, 0.26, 10]} />
+            <meshStandardMaterial color="#9aa1a8" metalness={0.8} roughness={0.35} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, 0.42, 2.15]}>
+        <boxGeometry args={[1.6, 0.22, 0.1]} />
+        <meshStandardMaterial color="#2a2e33" metalness={0.5} roughness={0.5} />
+      </mesh>
+      {[-0.6, 0.6].map((dx) => (
+        <mesh key={dx} position={[dx, 0.75, 2.12]}>
+          <circleGeometry args={[0.1, 12]} />
+          <meshStandardMaterial color="#fff6dc" emissive="#fff0c8" emissiveIntensity={1.8} />
         </mesh>
       ))}
-      <pointLight position={[0, 0.7, 2]} color="#ffe9c0" intensity={0.8} distance={5} />
+      <pointLight position={[0, 0.8, 3.0]} color="#ffe9c0" intensity={1.0} distance={6} />
     </group>
   );
 }
@@ -304,34 +331,72 @@ function Cat({ x, z, running, facingBench, bob }) {
 }
 
 function Bus({ x, z, headlight, doorOpen }) {
+  const body = "#2f5f93";
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, 1.6, 0]} castShadow>
-        <boxGeometry args={[2.4, 2.6, 10]} />
-        <meshStandardMaterial color="#3b6ea5" />
+      {/* 차체 — 아래 몸통 + 위 몸통을 살짝 좁혀 둥근 인상 */}
+      <mesh position={[0, 1.0, 0]} castShadow>
+        <boxGeometry args={[2.5, 1.3, 10.4]} />
+        <meshStandardMaterial color={body} metalness={0.55} roughness={0.35} />
       </mesh>
-      <mesh position={[-1.21, 1.9, 0]}>
-        <boxGeometry args={[0.02, 1.0, 9.2]} />
-        <meshPhysicalMaterial color="#cfe6ff" emissive="#ffe6b0" emissiveIntensity={0.35} transparent opacity={0.7} />
+      <mesh position={[0, 2.15, 0]} castShadow>
+        <boxGeometry args={[2.4, 1.2, 10.2]} />
+        <meshStandardMaterial color={body} metalness={0.55} roughness={0.35} />
       </mesh>
-      <mesh position={[-1.21, 0.9, 2.2]}>
-        <boxGeometry args={[0.03, 1.8, doorOpen ? 0.1 : 1.0]} />
-        <meshStandardMaterial color="#1c2a3a" />
+      <mesh position={[0, 2.82, 0]} castShadow>
+        <boxGeometry args={[2.3, 0.14, 10.0]} />
+        <meshStandardMaterial color="#d9dee3" metalness={0.3} roughness={0.5} />
       </mesh>
-      <mesh position={[0, 2.55, 4.99]}>
-        <planeGeometry args={[1.6, 0.35]} />
-        <meshStandardMaterial color="#ff9a3d" emissive="#ff9a3d" emissiveIntensity={1.5} />
+      {/* 창 띠 (양쪽) — 실내 온광이 비친다 */}
+      {[-1.22, 1.22].map((dx) => (
+        <mesh key={dx} position={[dx, 2.1, 0]}>
+          <boxGeometry args={[0.02, 0.95, 9.4]} />
+          <meshPhysicalMaterial color="#9fc3e6" emissive="#ffe0b0" emissiveIntensity={0.45} metalness={0.2} roughness={0.05} transparent opacity={0.75} />
+        </mesh>
+      ))}
+      {/* 앞유리 */}
+      <mesh position={[0, 2.05, 5.21]}>
+        <boxGeometry args={[2.1, 1.1, 0.02]} />
+        <meshPhysicalMaterial color="#9fc3e6" metalness={0.2} roughness={0.05} transparent opacity={0.7} />
       </mesh>
-      {[-0.8, 0.8].map((dx) => (
-        <group key={dx}>
-          <mesh position={[dx, 0.8, 5.01]}>
-            <circleGeometry args={[0.16, 12]} />
-            <meshStandardMaterial color="#fff6dc" emissive="#fff0c8" emissiveIntensity={2.2 * headlight} />
+      {/* 문 (관객 쪽, 왼쪽면) — 열리면 안쪽으로 접힌 것처럼 얇아진다 */}
+      <mesh position={[-1.23, 1.15, 2.4]}>
+        <boxGeometry args={[0.04, 2.0, doorOpen ? 0.12 : 1.1]} />
+        <meshStandardMaterial color="#1a2735" metalness={0.4} roughness={0.5} />
+      </mesh>
+      {/* 바퀴 */}
+      {[[-1.05, -3.2], [1.05, -3.2], [-1.05, 3.3], [1.05, 3.3]].map(([dx, dz], i) => (
+        <group key={i} position={[dx, 0.48, dz]} rotation={[0, 0, Math.PI / 2]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.48, 0.48, 0.32, 18]} />
+            <meshStandardMaterial color="#141517" roughness={0.9} />
           </mesh>
-          <pointLight position={[dx, 0.8, 6.5]} color="#fff0c8" intensity={headlight * 1.6} distance={12} />
+          <mesh>
+            <cylinderGeometry args={[0.22, 0.22, 0.34, 12]} />
+            <meshStandardMaterial color="#9aa1a8" metalness={0.8} roughness={0.35} />
+          </mesh>
         </group>
       ))}
-      <pointLight position={[0, 1.8, 0]} color="#ffe6b0" intensity={0.5} distance={4} />
+      {/* 범퍼·행선지판 */}
+      <mesh position={[0, 0.45, 5.25]}>
+        <boxGeometry args={[2.4, 0.3, 0.12]} />
+        <meshStandardMaterial color="#1e2328" metalness={0.5} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 2.62, 5.22]}>
+        <planeGeometry args={[1.5, 0.3]} />
+        <meshStandardMaterial color="#ff9a3d" emissive="#ff8a2a" emissiveIntensity={1.6} />
+      </mesh>
+      {/* 전조등 */}
+      {[-0.85, 0.85].map((dx) => (
+        <group key={dx}>
+          <mesh position={[dx, 0.85, 5.23]}>
+            <circleGeometry args={[0.15, 14]} />
+            <meshStandardMaterial color="#fff6dc" emissive="#fff0c8" emissiveIntensity={2.4 * headlight} />
+          </mesh>
+          <pointLight position={[dx, 0.85, 6.6]} color="#fff0c8" intensity={headlight * 1.8} distance={13} />
+        </group>
+      ))}
+      <pointLight position={[0, 2.2, 0]} color="#ffe6b0" intensity={0.6} distance={5} />
     </group>
   );
 }
