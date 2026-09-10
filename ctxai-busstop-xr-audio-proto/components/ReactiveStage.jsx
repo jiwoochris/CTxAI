@@ -178,18 +178,23 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
     const k = target > prev ? Math.min(1, prev + dt / 0.7) : Math.max(0, prev - dt / 0.7);
     blend.current = k;
     if (prev > 0 && k <= 0 && walking && actionRef.current) { const a = actionRef.current; a.paused = false; a.reset().fadeIn(0.2).play(); }
-    if (k <= 0) { model.position.y = 0; rest.current = null; return; }
-    const breath = Math.sin(state.clock.elapsedTime * 1.25) * 0.025; // 숨쉬기 — 척추가 살짝 펴졌다 굽는다
-    // 머리 look-at — 리그의 정면(+z) 방위와 머리→카메라 방위의 차를 시선 접촉률만큼
+    // 머리 look-at — 리그의 정면(+z) 방위와 머리→카메라 방위의 차를 시선 접촉률만큼 (걷는 중에도 흘끗 본다: 60%)
     let headYaw = 0;
     if (lookRef && bones.Head) {
-      const amt = lookRef.current?.npcGaze ?? 0.4;
+      const amt = (lookRef.current?.npcGaze ?? 0.4) * (k > 0 ? 1 : 0.6);
       model.getWorldDirection(tmpV1); const fwd = Math.atan2(tmpV1.x, tmpV1.z);
       bones.Head.getWorldPosition(tmpV2);
       const toCam = Math.atan2(state.camera.position.x - tmpV2.x, state.camera.position.z - tmpV2.z);
       let d = toCam - fwd; d = Math.atan2(Math.sin(d), Math.cos(d));
       headYaw = MathUtils.clamp(d, -1.2, 1.2) * amt;
     }
+    if (k <= 0) {
+      model.position.y = 0; rest.current = null;
+      // 걷는 중: 믹서가 매 프레임 뼈를 다시 쓰므로 그 위에 곱해도 누적되지 않는다
+      if (headYaw !== 0 && bones.Head) bones.Head.quaternion.multiply(tmpQ.setFromEuler(tmpE.set(0, headYaw, 0)));
+      return;
+    }
+    const breath = Math.sin(state.clock.elapsedTime * 1.25) * 0.025; // 숨쉬기 — 척추가 살짝 펴졌다 굽는다
     if (!rest.current) {
       const r = {}; for (const k in bones) r[k] = bones[k].quaternion.clone();
       model.updateMatrixWorld(true);
