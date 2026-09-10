@@ -16,7 +16,7 @@ export const T = {
   catScream: 52, clatter: 53,
   judge: 58,          // 우비 인물이 시야에서 사라지고, 판정 라벨(누가 앉는가)이 정해진다
   announce: 59,       // "272번 버스는 5분 후 도착 예정입니다"
-  npcWalkStart: 63, npcSeated: 68,
+  npcWalkStart: 62, npcSeated: 68, // 6초 걷기(−6 → 벤치 끝, 1.5m/s) — 관객 앞을 지나는 모습이 보이도록
   sceneStart: 69,     // 이때부터 대사 루프(페이지가 진행) — 상태는 계속 갱신된다
 };
 
@@ -70,7 +70,7 @@ export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null
   // 포터 트럭 — 가까운 차선을 오른쪽에서 왼쪽으로(v2.md §1-3). 정류장 앞(x≈0.6)에서 물웅덩이를 밟는다.
   if (t >= T.truckStart && t <= T.truckEnd) {
     const p = (t - T.truckStart) / (T.truckEnd - T.truckStart);
-    a.truck = { visible: true, x: lerp(34, -34, p), z: -4.75 };
+    a.truck = { visible: true, x: lerp(27, -27, p), z: -4.75 }; // 54m/9s ≈ 22km/h — 정면 시야(±48°)에 2초쯤 머문다
     a.splash = t >= T.truckSplash - 0.2 && t <= T.truckSplash + 1.2 ? (t - (T.truckSplash - 0.2)) / 1.4 : null;
   } else { a.truck = { visible: false }; a.splash = null; }
 

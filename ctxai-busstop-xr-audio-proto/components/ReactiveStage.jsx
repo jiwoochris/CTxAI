@@ -167,8 +167,9 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
     return () => { a.fadeOut(0.2); };
   }, [actions, walking, seated]);
   // useAnimations 의 useFrame(믹서 갱신)이 먼저 돌고 이 콜백이 돈다 — 정지 프레임 위에 앉은 자세를 얹는다
-  useFrame(() => {
+  useFrame((state) => {
     if (!seated) { model.position.y = 0; rest.current = null; return; }
+    const breath = Math.sin(state.clock.elapsedTime * 1.25) * 0.025; // 숨쉬기 — 척추가 살짝 펴졌다 굽는다
     if (!rest.current) {
       const r = {}; for (const k in bones) r[k] = bones[k].quaternion.clone();
       model.updateMatrixWorld(true);
@@ -180,7 +181,8 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
     for (const name in pose) {
       const b = bones[name], r = pose[name], q0 = rest.current.q[name];
       if (!b || !Array.isArray(r) || !q0) continue;
-      tmpQ.setFromEuler(tmpE.set(r[0], r[1], r[2]));
+      const dz = name === "Spine" ? breath : name === "Head" ? -breath * 0.6 : 0;
+      tmpQ.setFromEuler(tmpE.set(r[0], r[1], r[2] + dz));
       b.quaternion.copy(q0).multiply(tmpQ);
     }
     model.position.y = pose.seatY - rest.current.hipY; // 골반이 좌면 높이에 오도록 내린다
@@ -1039,7 +1041,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
           />
           )}
           {dominant === "C" && (
-            <mesh position={[0.25, 0.45, 0.1]} rotation={[0, 0, -0.2]}>
+            <mesh position={[0.05, 0.45, -0.32]} rotation={[0.15, 0, -0.12]}>
               <cylinderGeometry args={[0.012, 0.012, 0.9, 6]} />
               <meshStandardMaterial color="#3b2a1a" />
             </mesh>
