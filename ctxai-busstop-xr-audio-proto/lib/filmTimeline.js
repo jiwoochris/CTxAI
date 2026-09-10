@@ -55,15 +55,18 @@ export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null
   const a = {};
 
   // 우비 인물 — 카페 문(-18,-24.4)에서 나와 횡단보도 건너편 끝(-5,-17.6)까지 걷고, 트럭이 지나가길
-  // 기다렸다가(36~40s) 길을 건너(40~52s) 인도를 따라 정류장 쪽으로 오다가(52~58s) 왼쪽 유리 뒤로 사라진다.
-  if (t >= T.cafeBell && t < T.judge) {
+  // 기다렸다가(36~40s) 길을 건너(40~52s) 인도를 따라 정류장 왼쪽 옆(-2.8, 0.2)까지 오고(52~58s, 판정),
+  // 정류장 왼쪽 관목(-3,1.9) 뒤로 돌아 들어가(58~61s) 사라진다 — 시야 안에서 갑자기 없어지지 않게.
+  const figureEnd = T.judge + 3;
+  if (t >= T.cafeBell && t < figureEnd) {
     let x, z, walking = true;
     if (t < 36) { const p = seg(t, T.cafeBell + 1, 36); x = lerp(-18, -5, p); z = lerp(-24.4, -17.6, p); }
     else if (t < 40) { x = -5; z = -17.6; walking = false; }
     else if (t < 52) { const p = seg(t, 40, 52); x = -5; z = lerp(-17.6, -2.4, p); }
-    else { const p = seg(t, 52, T.judge); x = lerp(-5, -1.9, p); z = lerp(-2.4, -1.2, p); }
+    else if (t < T.judge) { const p = (t - 52) / (T.judge - 52); x = lerp(-5, -2.8, p); z = lerp(-2.4, 0.2, p); }
+    else { const p = (t - T.judge) / (figureEnd - T.judge); x = lerp(-2.8, -3.6, p); z = lerp(0.2, 2.8, p); }
     // 진행 방향으로 몸을 돌린다 (정지 중엔 도로를 본다)
-    const yaw = t < 36 ? heading(13, 6.8) : t < 40 ? heading(0, 1) : t < 52 ? heading(0, 1) : heading(3.1, 1.2);
+    const yaw = t < 36 ? heading(13, 6.8) : t < 52 ? heading(0, 1) : t < T.judge ? heading(2.2, 2.6) : heading(-0.8, 2.6);
     a.figure = { visible: true, x, z, walking, yaw, bob: t };
   } else a.figure = { visible: false };
 
