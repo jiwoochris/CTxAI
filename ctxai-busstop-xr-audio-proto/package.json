@@ -12,7 +12,6 @@
     "pull-assets": "node scripts/pull-assets.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.115.0",
     "@google/model-viewer": "^4.3.1",
     "@mediapipe/tasks-vision": "^1.0.1",
     "@react-three/drei": "^9.122.0",

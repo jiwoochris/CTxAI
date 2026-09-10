@@ -18,9 +18,9 @@ export async function GET() {
     // local 이면 배포 때마다 파일이 사라집니다. 운영에서는 supabase 여야 합니다.
     storage: storageMode(),
     keys: {
-      OPENROUTER_API_KEY: !!process.env.OPENROUTER_API_KEY,   // STT + 채점
-      ELEVENLABS_API_KEY: !!process.env.ELEVENLABS_API_KEY,   // 음성 합성
-      ELEVENLABS_VOICE_ID: !!process.env.ELEVENLABS_VOICE_ID, // 8/8 사운드가 채움
+      OPENROUTER_API_KEY: !!process.env.OPENROUTER_API_KEY,   // STT + 채점 + 대사 생성 + TTS — 2026-09-10부터 외부 API는 이 키 하나
+      ELEVENLABS_API_KEY: !!process.env.ELEVENLABS_API_KEY,   // (레거시) scripts/synthesize-dialogue.mjs 만 사용
+      ELEVENLABS_VOICE_ID: !!process.env.ELEVENLABS_VOICE_ID, // (레거시)
     },
     endpoints: {
       "POST /api/mood": "음성 → 4장르 점수 (multipart: audio)",
