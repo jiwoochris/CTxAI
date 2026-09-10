@@ -13,7 +13,7 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree, useLoader } from "@react-three/fiber";
 import { useGLTF, useAnimations, MeshReflectorMaterial } from "@react-three/drei";
-import { Color, Vector3, FogExp2, BackSide, MathUtils, CanvasTexture, SRGBColorSpace, PMREMGenerator } from "three";
+import { Color, Vector3, FogExp2, BackSide, MathUtils, CanvasTexture, SRGBColorSpace, PMREMGenerator, TextureLoader, RepeatWrapping } from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Cypress, RoundPine, Reeds, ForestRing, Shelter, Bench, Cafe } from "./BlockoutStage";
@@ -180,6 +180,47 @@ function Prop({ url, scale = 1, position = [0, 0, 0], rotation = [0, 0, 0], cast
     return c;
   }, [scene, castShadow, only]);
   return <primitive object={model} position={position} rotation={rotation} scale={scale} />;
+}
+
+// PBR 텍스처 세트(PolyHaven CC0, 1k jpg) — 반복·색공간을 맞춰 준다
+function usePbr(id, repeat) {
+  const [map, normalMap, roughnessMap, aoMap] = useLoader(TextureLoader, [
+    `/reactive/textures/${id}_Diffuse.jpg`, `/reactive/textures/${id}_nor_gl.jpg`, `/reactive/textures/${id}_Rough.jpg`, `/reactive/textures/${id}_AO.jpg`,
+  ]);
+  useMemo(() => {
+    for (const tx of [map, normalMap, roughnessMap, aoMap]) { tx.wrapS = tx.wrapT = RepeatWrapping; tx.repeat.set(repeat[0], repeat[1]); tx.anisotropy = 8; }
+    map.colorSpace = SRGBColorSpace;
+  }, [map, normalMap, roughnessMap, aoMap, repeat]);
+  return { map, normalMap, roughnessMap, aoMap };
+}
+
+function RoadSurface({ roadMat, reflect }) {
+  const tex = usePbr("asphalt_02", [3, 15]);
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.4, 0, -10]} receiveShadow>
+      <planeGeometry args={[8, 40]} />
+      {reflect ? (
+        <MeshReflectorMaterial
+          ref={roadMat} {...tex} color="#8a8d92" roughness={0.6} metalness={0.15} normalScale={[0.5, 0.5]}
+          blur={[420, 140]} resolution={640} mixBlur={1} mixStrength={0.8} mixContrast={1} mirror={0.4}
+          depthScale={0.8} minDepthThreshold={0.85} maxDepthThreshold={1.3} depthToBlurRatioBias={0.25}
+        />
+      ) : (
+        <meshStandardMaterial ref={roadMat} {...tex} color="#8a8d92" roughness={0.6} metalness={0.15} />
+      )}
+    </mesh>
+  );
+}
+
+// 지면 — 숲 바닥 텍스처. 소나기 뒤라 어둡고 젖은 톤으로 눌러 둔다.
+function Ground() {
+  const tex = usePbr("forest_floor", [48, 48]);
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      <planeGeometry args={[160, 160]} />
+      <meshStandardMaterial {...tex} color="#6a6a5e" roughness={0.95} metalness={0} normalScale={[0.6, 0.6]} />
+    </mesh>
+  );
 }
 
 // 침엽수 — PolyHaven 묘목(fir_sapling / pine_sapling_small)을 4~6배로 키워 숲을 만든다.
@@ -531,19 +572,16 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
         shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-camera-near={1} shadow-camera-far={40}
       />
 
-      {/* 도로 — 색·광택이 상태를 따른다 (로맨스 "젖은 도로 전체가 금빛으로") */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.4, 0, -10]} receiveShadow>
-        <planeGeometry args={[8, 40]} />
-        {reflect ? (
-          <MeshReflectorMaterial
-            ref={roadMat} color="#3f4247" roughness={0.6} metalness={0.15}
-            blur={[420, 140]} resolution={640} mixBlur={1} mixStrength={0.8} mixContrast={1} mirror={0.4}
-            depthScale={0.8} minDepthThreshold={0.85} maxDepthThreshold={1.3} depthToBlurRatioBias={0.25}
-          />
-        ) : (
+      {/* 도로 — 색·광택이 상태를 따른다 (로맨스 "젖은 도로 전체가 금빛으로"). 아스팔트 텍스처 + 반사 */}
+      <Suspense fallback={null}><Ground /></Suspense>
+      <Suspense fallback={(
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2.4, 0, -10]} receiveShadow>
+          <planeGeometry args={[8, 40]} />
           <meshStandardMaterial ref={roadMat} color="#3f4247" roughness={0.6} metalness={0.15} />
-        )}
-      </mesh>
+        </mesh>
+      )}>
+        <RoadSurface roadMat={roadMat} reflect={reflect} />
+      </Suspense>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.6, 0.01, -6]} receiveShadow>
         <planeGeometry args={[2.2, 20]} />
         <meshStandardMaterial color="#5c5c58" />
