@@ -64,6 +64,63 @@ if (cmd === "open") {
   const r = await fetch(`${base}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
   const t = await r.json();
   console.log(t.id);
+} else if (cmd === "record") {
+  // 소리까지 담는 녹화: record <port> <url> <dir> <seconds> [fps]
+  // 페이지 스크립트보다 먼저 훅을 심어 모든 <audio> 출력을 MediaStreamDestination 으로 복사하고 MediaRecorder(opus/webm)로 받는다.
+  // 게이트의 "시작하기"를 누르는 순간에 오디오·화면 녹화를 함께 시작해 정렬한다. 결과: dir/000001.jpg…, times.txt, audio.webm
+  const [url, dir, seconds, fpsArg] = rest;
+  const fps = Number(fpsArg) || 12;
+  fs.mkdirSync(dir, { recursive: true });
+  const t = await (await fetch(`${base}/json/new?about:blank`, { method: "PUT" })).json();
+  const c = await connect(t.webSocketDebuggerUrl);
+  await c.send("Page.enable"); await c.send("Runtime.enable");
+  const HOOK = `(() => {
+    const RealCtx = window.AudioContext || window.webkitAudioContext; let shared = null;
+    const getShared = () => { if (!shared) { shared = new RealCtx(); shared.__dest = shared.createMediaStreamDestination(); } return shared; };
+    const Shared = function () { return getShared(); }; Shared.prototype = RealCtx.prototype;
+    window.AudioContext = Shared; window.webkitAudioContext = Shared;
+    const origConnect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (target, ...rest) {
+      const r = origConnect.call(this, target, ...rest);
+      try { if (target instanceof AudioDestinationNode && this.context.__dest) origConnect.call(this, this.context.__dest); } catch (e) {}
+      return r;
+    };
+    const seen = new WeakSet(); const origPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (...a) {
+      if (!seen.has(this)) { seen.add(this); try { const cx = getShared(); cx.createMediaElementSource(this).connect(cx.destination); } catch (e) {} }
+      return origPlay.apply(this, a);
+    };
+    window.__rec = {
+      chunks: [],
+      start() { const cx = getShared(); cx.resume(); this.mr = new MediaRecorder(cx.__dest.stream, { mimeType: "audio/webm;codecs=opus" }); this.mr.ondataavailable = (e) => this.chunks.push(e.data); this.mr.start(1000); return cx.state; },
+      stop() { return new Promise((res) => { this.mr.onstop = async () => { const buf = await new Blob(this.chunks, { type: "audio/webm" }).arrayBuffer(); const u8 = new Uint8Array(buf); let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); res(btoa(s)); }; this.mr.stop(); }); },
+    };
+  })();`;
+  await c.send("Page.addScriptToEvaluateOnNewDocument", { source: HOOK });
+  await c.send("Page.navigate", { url });
+  // 게이트가 뜰 때까지
+  for (let i = 0; i < 60; i++) { await sleep(500); const ok = await evalIn(c, `!!document.querySelector('canvas') && [...document.querySelectorAll('button')].some(b => /시작하기/.test(b.innerText))`).catch(() => false); if (ok) break; }
+  await sleep(1500);
+  // 녹음 시작 → 화면 녹화 시작 → 시작하기 클릭
+  const state = await evalIn(c, `window.__rec.start()`);
+  let n = 0; const t0 = Date.now(); let last = 0;
+  const times = fs.createWriteStream(path.join(dir, "times.txt"));
+  c.on("Page.screencastFrame", (p) => {
+    const now = Date.now();
+    if (now - last >= 1000 / fps - 5) { n++; fs.writeFileSync(path.join(dir, String(n).padStart(6, "0") + ".jpg"), Buffer.from(p.data, "base64")); times.write(`${n}\t${((now - t0) / 1000).toFixed(3)}\n`); last = now; }
+    c.send("Page.screencastFrameAck", { sessionId: p.sessionId }).catch(() => {});
+  });
+  await c.send("Page.startScreencast", { format: "jpeg", quality: 85, everyNthFrame: 1 });
+  await evalIn(c, `[...document.querySelectorAll('button')].find(b => /시작하기/.test(b.innerText)).click(); 'clicked'`);
+  console.log(`recording (audio ctx ${state}) …`);
+  await sleep(Number(seconds) * 1000);
+  await c.send("Page.stopScreencast").catch(() => {});
+  times.end();
+  const b64 = await evalIn(c, `window.__rec.stop()`);
+  fs.writeFileSync(path.join(dir, "audio.webm"), Buffer.from(b64, "base64"));
+  console.log(`${n} frames, audio ${Math.round(b64.length * 0.75 / 1024)}KB in ${((Date.now() - t0) / 1000).toFixed(1)}s → ${dir}`);
+  await fetch(`${base}/json/close/${t.id}`).catch(() => {});
+  c.close();
 } else if (cmd === "screencast") {
   // 영상용 연속 프레임: screencast <port> <targetId> <dir> <seconds> [fps]  → dir/000001.jpg … + dir/times.txt (초)
   // 끝나면 ffmpeg 로 합친다: ffmpeg -framerate <fps> -i dir/%06d.jpg -c:v libx264 -pix_fmt yuv420p out.mp4
