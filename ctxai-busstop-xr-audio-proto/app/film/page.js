@@ -19,6 +19,7 @@
 //
 // URL 옵션: ?speed=2 (영화 시간 배속) · ?cam=0 (웹캠 채널 끄기) · ?hud=0 (HUD 숨김) · ?rig=0 (리깅 캐릭터 끄기)
 //           ?pool=1 (대사 풀 모드 — 원문 46줄 대신 상태에 따라 보조 장르 변주를 줄마다 고른다. 목소리는 OpenRouter 합성)
+//           ?scene=240 (캐릭터 장면 목표 길이 초 — 대사 사이 침묵을 늘려 안내방송의 "5분 후 도착"에 가깝게. 기본 0 = 자연 길이)
 //           ?voice=1 (음성 채널 — 안내방송 뒤 "당신은 무엇을 기다리고 있습니까?"를 묻고 답을 STT·톤 분석해 증거로 넣고,
 //                     답에서 뽑은 명사를 정류장 이름 표지판에 쓴다. 요청서 v5.0 §2.6) · ?voicefake=romance (마이크 대신 샘플 파일)
 
@@ -135,6 +136,9 @@ export default function FilmPage() {
   const useRig = q.rig !== "0"; // ?rig=0 이면 리깅 캐릭터 대신 캡슐 실루엣
   const usePool = q.pool === "1"; // 대사 풀 모드 (lib/dialoguePool.js)
   const voiceFake = q.voicefake || null; // public/samples/<name>.m4a 를 마이크 대신 쓴다 (점검용)
+  // 장면 목표 길이(초). 대사 오디오는 합쳐 1~1.5분이라 "5분 후 도착"을 채우려면 침묵을 늘려야 한다.
+  // 침묵은 상태가 정한 값(npcSilence)을 하한으로 두고, 남는 시간을 줄 사이에 고르게 나눈다.
+  const sceneTarget = Math.max(0, Number(q.scene) || 0);
   const useVoice = q.voice === "1" || !!voiceFake;
   const [signText, setSignText] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("off");
@@ -376,6 +380,9 @@ export default function FilmPage() {
 
     const pool = usePool ? poolRef.current : null;
     const poolOk = !!pool?.ok && poolCoverage(pool, dom).base === base.length;
+    // ?scene= 목표 길이: (목표 − 대사 오디오 추정 합) / 줄 수 만큼을 각 줄 뒤 침묵에 더한다.
+    const extraGap = sceneTarget > 0 ? Math.max(0, (sceneTarget - base.length * 3.5) / base.length) : 0;
+    const gapMs = (p) => ((Math.max(p?.npcSilence ?? 1.2, 0) + extraGap) * 1000) / speed;
 
     for (let i = 0; i < base.length; i++) {
       if (token.aborted) return;
@@ -390,7 +397,7 @@ export default function FilmPage() {
           d.markEvent("line", { seq: l.seq, secondary: pick.secondary, weight: Math.round(pick.weight * 100) / 100 });
           setLine({ ...l, text: pick.text, tinted: pick.secondary, index: i, total: base.length });
           await playFile(pick.file.replace(`${AUDIO_BASE}/`, ""), Math.min(1, p.npcVolume ?? 1));
-          await wait(((paramsRef.current?.npcSilence ?? 1.2) * 1000) / speed);
+          await wait(gapMs(paramsRef.current));
           continue;
         }
       }
@@ -403,14 +410,13 @@ export default function FilmPage() {
           d.markEvent("callback", { genre: secondary, weight: secondaryWeight });
           setLine({ ...cb, flavor: true, index: i, total: base.length });
           await playFile(cb.file, Math.min(1, (p.npcVolume ?? 1) * 0.9));
-          await wait(((p.npcSilence ?? 1.2) * 1000) / speed);
+          await wait(gapMs(p));
         }
       }
       const l = base[i];
       setLine({ ...l, index: i, total: base.length });
       await playFile(l.file, Math.min(1, p.npcVolume ?? 1));
-      const gap = (paramsRef.current?.npcSilence ?? 1.2) * 1000;
-      await wait(gap / speed);
+      await wait(gapMs(paramsRef.current));
     }
     if (token.aborted) return;
     setLine(null);
