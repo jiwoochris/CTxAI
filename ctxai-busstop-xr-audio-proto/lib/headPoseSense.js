@@ -79,7 +79,11 @@ export function createHeadPoseSensor({ push, mark }) {
     const recheck = ev.lookedAgainAfterEnd ? 1 : 0;
 
     let H = 0, C = 0, R = 0;
-    if (ev.kind === "startle") {
+    if (!ev.looked) {
+      // 사건 방향을 아예 보지 않았다 — 고개 속도는 이 사건에 대한 반응이 아니므로 쓰지 않는다.
+      // 뒤로 물러남(헤드셋 위치)만 방어 신호로 남기고, 나머지는 "낮은 반응" = 로맨스 쪽.
+      H = retreat; C = 0; R = 0.6;
+    } else if (ev.kind === "startle") {
       // 물보라·고양이: 방어 반응 AND 느린 회복 → 공포. 봤지만 빨리 안정 → 코미디 쪽.
       H = Math.min(defensive, Math.max(sustained, recheck, slowRecovery));
       C = Math.min(looked, fastRecovery, 1 - defensive * 0.6);
