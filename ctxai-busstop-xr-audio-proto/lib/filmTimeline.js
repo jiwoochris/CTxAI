@@ -51,7 +51,7 @@ function seg(t, a, b) { return smooth((t - a) / (b - a)); }
 function heading(dx, dz) { return Math.atan2(dx, dz); } // 모델 정면(+z)이 진행 방향을 보게 하는 yaw
 const BUS_STOP_X = -1.2; // 정차 시 차체 중심. 앞문은 +2.4 → x≈1.2
 
-export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null } = {}) {
+export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null, leaveAt = null } = {}) {
   const a = {};
 
   // 우비 인물 — 카페 문(-18,-24.4)에서 나와 횡단보도 건너편 끝(-5,-17.6)까지 걷고, 트럭이 지나가길
@@ -121,10 +121,12 @@ export function evalActors(t, { dominant = null, npcDistance = 0.9, busAt = null
       if (dominant === "H") a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, 1.6, q), z: lerp(0.3, 3.6, q), yaw: heading(0.5, 3.3), bob: t, visible: q < 1 };
       else a.npc = { ...a.npc, seated: false, walking: q < 1, x: lerp(a.npc.x, BUS_STOP_X + 2.4, q), z: lerp(0.3, -2.7, q), yaw: heading(BUS_STOP_X + 2.4 - a.npc.x, -3.0), bob: t, visible: q < 0.98 };
     }
-    a.bus.doorOpen = stopped && t < busAt + 16;
-    a.busLeaving = t >= busAt + 16 ? seg(t, busAt + 16, busAt + 22) : 0;
+    // 출발 시각 — 기본 +16. 마지막 말이 길면(배속 관찰 등) 디렉터가 leaveAt 을 뒤로 민다: 문은 말이 끝날 때까지 열려 있다
+    const leave = Math.max(leaveAt ?? busAt + 16, busAt + 16);
+    a.bus.doorOpen = stopped && t < leave;
+    a.busLeaving = t >= leave ? seg(t, leave, leave + 6) : 0;
     if (a.busLeaving > 0) a.bus.x = lerp(BUS_STOP_X, 50, a.busLeaving);
-    a.fade = t >= busAt + 19 ? seg(t, busAt + 19, busAt + 23) : 0;
+    a.fade = t >= leave + 3 ? seg(t, leave + 3, leave + 7) : 0;
   } else { a.bus = { visible: false }; a.busLeaving = 0; a.fade = 0; }
 
   return a;

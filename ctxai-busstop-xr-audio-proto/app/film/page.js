@@ -39,6 +39,7 @@ import { CUES, evalActors } from "@/lib/filmTimeline";
 import { DIALOGUE_V2_LINES, DIALOGUE_V2_GENRE_LABEL } from "@/lib/dialogueV2Lines";
 import { observe, judgeFromBehavior } from "@/lib/behaviorSense";
 import { loadDialoguePool, pickPoolLine, poolCoverage } from "@/lib/dialoguePool";
+import { beatOf, gazeFor, playsLine, playedCount, beatsTotalSec, answerWatchStart, answerWatchUpdate, answerWatchResult } from "@/lib/dialogueBeats";
 import { scoresFromMoodApi } from "@/lib/textKeywords";
 import { analyzeProsody } from "@/lib/voiceProsody";
 import s from "../story/story.module.css";
@@ -63,7 +64,7 @@ function useQuery() {
 }
 
 // 캔버스 안에서 도는 디렉터 — 카메라 포즈를 센서에 넣고, 상태를 tick 하고, 타임라인을 밀고, 큐를 쏜다.
-function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, speed }) {
+function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, speed, debugBus = false, debugTruck = false }) {
   const session = useXR((xr) => xr.session);
   const euler = useMemo(() => new Euler(), []);
   useFrame((state, dt) => {
@@ -91,7 +92,9 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
       }
     }
 
-    const actors = evalActors(film.t, { dominant: film.dominant, npcDistance: film.npcDistance, busAt: film.busAt });
+    const actors = evalActors(film.t, { dominant: film.dominant, npcDistance: film.npcDistance, busAt: film.busAt, leaveAt: film.leaveAt });
+    if (debugBus) actors.bus = { visible: true, x: -1.2, z: -4.75, stopped: true, doorOpen: true, headlight: 0.6 }; // ?bus=1 — 정차한 버스를 바로 본다 (디자인 점검용)
+    if (debugTruck) actors.truck = { visible: true, x: 1.0, z: -4.6 }; // ?truck=1 — 트럭을 물웅덩이 앞에 세운다
     actorsRef.current = actors;
 
     // 옆사람이 앉아 있으면 그 방향을 센서에 알려 "사람에 대한 관심"을 잰다
@@ -100,6 +103,13 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
       const dz = actors.npc.z - state.camera.position.z;
       sensorRef.current?.setNpcAzimuth(MathUtils.radToDeg(Math.atan2(dx, -dz)));
     } else sensorRef.current?.setNpcAzimuth(null);
+
+    // 질문 뒤 기다리는 동안 — 머리 자세의 폭(끄덕임·가로젓기·돌림)을 잰다. 자동 시선 중엔 held 값이라 응답이 생기지 않는다.
+    if (film.listen) {
+      let npcAz = null;
+      if (actors.npc?.visible && actors.npc.seated) npcAz = MathUtils.radToDeg(Math.atan2(actors.npc.x - state.camera.position.x, -(actors.npc.z - state.camera.position.z)));
+      if (!film.watch) film.watch = answerWatchStart(yaw, pitch, npcAz); else answerWatchUpdate(film.watch, yaw, pitch);
+    }
 
     if (film.onFrame) film.onFrame(film.t, actors);
   });
@@ -110,7 +120,7 @@ function FilmDirector({ directionRef, sensorRef, actorsRef, filmRef, onCue, spee
 // 데스크톱 자동 시선 — 헤드셋에서는 관객이 직접 고개를 돌리지만, 화면 데모에서는 아무도 드래그하지 않으면
 // 옆사람이 앉은 뒤 카메라가 옆사람 쪽(오른쪽 약 60°)으로 천천히 돌아가고, 버스가 오면 정면으로 돌아온다.
 // 드래그하면 8초 동안 손을 뗀다. 자동으로 도는 동안은 "사람에 대한 관심" 측정을 끈다(film.autoGaze).
-const AUTO_GAZE_NPC = 1.3, AUTO_GAZE_BUS = 0.22, AUTO_GAZE_PITCH = -0.14; // 실측: 77° 오른쪽·약간 아래가 옆사람 얼굴이 가운데 오는 각
+const AUTO_GAZE_NPC = 1.1, AUTO_GAZE_BUS = 0.22, AUTO_GAZE_PITCH = -0.1; // 63° 오른쪽·약간 아래 — 옆사람이 화면 오른쪽 1/3 에 오고 도로가 남는다 (77° 는 얼굴이 화면을 채웠다)
 function DesktopGaze({ controlsRef, actorsRef, filmRef }) {
   const session = useXR((xr) => xr.session);
   const manualUntil = useRef(0);
@@ -436,7 +446,9 @@ export default function FilmPage() {
     setVoiceStatus(out.textScores ? "done" : "silent");
   }
 
-  // 캐릭터 장면 — 대사는 이산(고정 46줄)이지만 간격·크기·보조 장르 콜백은 상태를 따른다.
+  // 캐릭터 장면 — 대사는 CSV 순서 그대로 튼다. 줄마다 붙은 비트(lib/dialogueBeats.js)가 누구에게 말하는지·앞뒤 쉼·
+  // 질문 뒤 기다림·"답함/안답함" 갈래를 정한다. 관객의 답은 고개(끄덕임·가로젓기·돌림)로만 받는다 — 마이크 없음.
+  // 마지막 말(atBus)은 272 가 정차하고 문이 열린 뒤에 한다.
   async function runScene() {
     const d = directionRef.current;
     const film = filmRef.current;
@@ -447,54 +459,87 @@ export default function FilmPage() {
 
     const pool = usePool ? poolRef.current : null;
     const poolOk = !!pool?.ok && poolCoverage(pool, dom).base === base.length;
-    // ?scene= 목표 길이: (목표 − 대사 오디오 추정 합) / 줄 수 만큼을 각 줄 뒤 침묵에 더한다.
-    const extraGap = sceneTarget > 0 ? Math.max(0, (sceneTarget - base.length * 3.5) / base.length) : 0;
+    // ?scene= 목표 길이: (목표 − 대사 오디오 추정 합 − 비트 쉼 합) / 줄 수 만큼을 각 줄 뒤 침묵에 더한다.
+    const extraGap = sceneTarget > 0 ? Math.max(0, (sceneTarget - base.length * 3.5 - beatsTotalSec(base)) / base.length) : 0;
     const gapMs = (p) => ((Math.max(p?.npcSilence ?? 1.2, 0) + extraGap) * 1000) / speed;
+    const sec = (s) => wait((s * 1000) / speed);
+    // 영화 시간 기준 대기 — 버스 안무(filmTimeline)는 film.t 를 따르므로, fps 가 낮아 film.t 가 벽시계보다 느리게 갈 때도 어긋나지 않게
+    const waitFilm = async (s) => { const t0 = film.t; while (!token.aborted && film.t - t0 < s) await wait(40); };
+    const total = playedCount(base);
+    let answered = false, played = 0, busStarted = false;
+
+    // 272 도착 — 버스가 커브를 돌아 들어와 정면(앞문 x≈1.2)에 서기까지 7.2초, 그 다음 문
+    const arriveBus = async () => {
+      busStarted = true;
+      film.lineGaze = null;
+      film.busAt = film.t;
+      d.setPhase("bus");
+      setPhase("bus");
+      playSfx("07", { volume: 0.7 });
+      setCaption("272");
+      await waitFilm(7.2); if (token.aborted) return;
+      playSfx("08", { volume: 0.5 }); setCaption("");
+    };
 
     for (let i = 0; i < base.length; i++) {
+      if (token.aborted) return;
+      const l = base[i];
+      const b = beatOf(l);
+      if (!playsLine(b, answered)) { d.markEvent("skip", { seq: l.seq, branch: b.branch }); continue; } // 갈래 중 하나만
+      if (b.atBus) { await arriveBus(); if (token.aborted) return; }
+      if (b.before) await sec(b.before);
       if (token.aborted) return;
       const p = paramsRef.current || {};
       const { secondary, secondaryWeight } = rank(d.st.current);
 
-      if (poolOk) {
-        // 풀 모드: 이 줄을 재생하기 직전의 상태로 원문/보조 장르 변주를 고른다 (근접 매칭).
-        const l = base[i];
-        const pick = pickPoolLine(pool, dom, l.seq, d.st.current);
-        if (pick) {
-          d.markEvent("line", { seq: l.seq, secondary: pick.secondary, weight: Math.round(pick.weight * 100) / 100 });
-          setLine({ ...l, text: pick.text, tinted: pick.secondary, index: i, total: base.length });
-          await playFile(pick.file.replace(`${AUDIO_BASE}/`, ""), Math.min(1, p.npcVolume ?? 1));
-          await wait(gapMs(paramsRef.current));
-          continue;
-        }
-      }
-
-      // 보조 장르 콜백 — 비중이 임계값을 넘는 순간 한 번, 그 장르의 첫 줄을 끼워 넣는다
-      if (!insertedCallback && i >= 2 && secondary !== dom && secondaryWeight >= TRIGGERS.secondaryCallback.above) {
-        const cb = DIALOGUE_V2_LINES.find((l) => l.genre === secondary && l.seq === "01");
+      // 보조 장르 콜백 — 비중이 임계값을 넘는 순간 한 번, 그 장르의 첫 줄을 끼워 넣는다 (마지막 말 앞에는 넣지 않는다)
+      if (!insertedCallback && i >= 2 && !b.atBus && secondary !== dom && secondaryWeight >= TRIGGERS.secondaryCallback.above) {
+        const cb = DIALOGUE_V2_LINES.find((x) => x.genre === secondary && x.seq === "01");
         if (cb) {
           insertedCallback = true;
           d.markEvent("callback", { genre: secondary, weight: secondaryWeight });
-          setLine({ ...cb, flavor: true, index: i, total: base.length });
+          film.lineGaze = 0.5;
+          setLine({ ...cb, flavor: true, index: played, total });
           await playFile(cb.file, Math.min(1, (p.npcVolume ?? 1) * 0.9));
           await wait(gapMs(p));
         }
       }
-      const l = base[i];
-      setLine({ ...l, index: i, total: base.length });
-      await playFile(l.file, Math.min(1, p.npcVolume ?? 1));
-      await wait(gapMs(paramsRef.current));
+
+      // 이 줄 — 풀 모드면 재생 직전 상태로 원문/보조 장르 변주를 고른다 (근접 매칭)
+      let text = l.text, file = l.file, tinted = null;
+      if (poolOk) {
+        const pick = pickPoolLine(pool, dom, l.seq, d.st.current);
+        if (pick) {
+          text = pick.text; file = pick.file.replace(`${AUDIO_BASE}/`, ""); tinted = pick.secondary;
+          d.markEvent("line", { seq: l.seq, secondary: pick.secondary, weight: Math.round(pick.weight * 100) / 100 });
+        }
+      }
+      film.lineGaze = gazeFor(b);
+      setLine({ ...l, text, tinted, to: b.to, index: played, total });
+      played++;
+      await playFile(file, Math.min(1, (p.npcVolume ?? 1) * (b.vol ?? 1)));
+      if (token.aborted) return;
+
+      if (b.to === "ask") {
+        // 관객을 보며 기다린다 — FilmDirector 가 이 동안 머리 자세 폭을 잰다
+        film.watch = null; film.listen = true;
+        await sec(b.wait ?? 2.5);
+        const r = answerWatchResult(film.watch);
+        film.listen = false; film.watch = null;
+        answered = r.answered;
+        d.markEvent("ask", { seq: l.seq, answered: r.answered, how: r.how });
+      }
+      if (b.after) await sec(b.after);
+      if (!b.atBus) await wait(gapMs(paramsRef.current));
     }
     if (token.aborted) return;
+    if (!busStarted) await arriveBus();
+    if (token.aborted) return;
     setLine(null);
-    film.busAt = film.t;
-    d.setPhase("bus");
-    setPhase("bus");
-    playSfx("07", { volume: 0.7 });
-    setCaption("272");
-    // 문 열림 → 인물 퇴장 → 버스 출발 → 암전 (filmTimeline의 busAt 기준 오프셋)
-    await wait((7.2 * 1000) / speed); if (token.aborted) return; playSfx("08", { volume: 0.5 }); setCaption("");
-    await wait((16 * 1000) / speed); // 퇴장 6초 + 출발 6초 + 암전 4초 (filmTimeline: busAt+8…+23)
+    film.lineGaze = null;
+    // 마지막 말이 끝난 뒤 → 버스 출발(기본 busAt+16, 말이 더 길었으면 1초 뒤) → 암전(출발 +3~+7). 인물 퇴장은 busAt+8 부터 (filmTimeline)
+    film.leaveAt = Math.max(film.t + 1.0, film.busAt + 16);
+    await waitFilm(Math.max(2, film.leaveAt + 7.2 - film.t));
     if (token.aborted) return;
     d.setPhase("end");
     setPhase("end");
@@ -565,10 +610,10 @@ export default function FilmPage() {
         <Canvas shadows="soft" gl={{ antialias: true }}>
           <PerspectiveCamera makeDefault position={CANVAS_CAMERA.position} fov={CANVAS_CAMERA.fov} />
           <XR store={xrStore}>
-            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} reflect={fx && !xrActive} benchYaw={Number(q.benchyaw) || 0} />
+            <ReactiveStage directionRef={directionRef} actorsRef={actorsRef} dominant={dominant} paramsOut={paramsRef} cueRef={filmRef} useRig={useRig} rigTest={q.rigtest === "1"} signText={signText} reflect={fx && !xrActive} benchYaw={Number(q.benchyaw) || 0} />
             <XRProbe onChange={setXrActive} />
             <Effects enabled={fx} />
-            <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} />
+            <FilmDirector directionRef={directionRef} sensorRef={sensorRef} actorsRef={actorsRef} filmRef={filmRef} onCue={onCue} speed={speed} debugBus={q.bus === "1"} debugTruck={q.truck === "1"} />
             {q.gaze !== "0" && <DesktopGaze controlsRef={controlsRef} actorsRef={actorsRef} filmRef={filmRef} />}
           </XR>
           {/* 드래그 = 제자리에서 고개 돌리기. 타깃을 카메라 바로 앞 1cm 에 두면 궤도 회전이 머리 회전처럼 된다
@@ -662,7 +707,7 @@ export default function FilmPage() {
         <div className={f.caption}><span className={f.captionText}>{caption}</span></div>
       )}
 
-      {phase === "scene" && line && (
+      {(phase === "scene" || phase === "bus") && line && (
         <div className={s.subtitleBar} style={{ "--accent": lineAccent }}>
           <div className={s.subtitleInner}>
             <div className={s.progressTrack}>

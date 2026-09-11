@@ -6,6 +6,8 @@ import { createDirectionState, entropyConfidence, rank } from "../lib/directionS
 import { ANCHORS, TRIGGERS, deriveParams, deriveBgmGains } from "../lib/directionMap.js";
 import { pickPoolLine, TINT_THRESHOLD } from "../lib/dialoguePool.js";
 import { evalActors, T } from "../lib/filmTimeline.js";
+import { DIALOGUE_V2_LINES } from "../lib/dialogueV2Lines.js";
+import { DIALOGUE_V2_BEATS, beatOf, playsLine, playedCount, gazeFor, answerWatchStart, answerWatchUpdate, answerWatchResult } from "../lib/dialogueBeats.js";
 
 let n = 0;
 function test(name, fn) { try { fn(); n++; console.log("ok ", name); } catch (e) { console.log("FAIL", name, "—", e.message); process.exitCode = 1; } }
@@ -91,6 +93,43 @@ test("타임라인 — 옆사람은 관객 코앞(0.9m 안)으로 들어오지 �
   assert.ok(close(gone.npc.x, 1.2, 0.1) && gone.npc.z < -2.5, `문 앞(1.2,-2.7)으로: ${gone.npc.x.toFixed(2)},${gone.npc.z.toFixed(2)}`);
   const h = evalActors(busAt + 13.9, { dominant: "H", npcDistance: 1.2, busAt });
   assert.ok(h.npc.z > 3, "공포는 벤치 뒤 풀숲으로");
+});
+
+test("대사 비트 — 모든 비트가 CSV 줄을 가리키고, 46줄 전부 비트가 있다", () => {
+  const ids = new Set(DIALOGUE_V2_LINES.map((l) => `${l.genre}.${l.seq}`));
+  for (const k of Object.keys(DIALOGUE_V2_BEATS)) assert.ok(ids.has(k), `없는 줄 ${k}`);
+  for (const id of ids) assert.ok(DIALOGUE_V2_BEATS[id], `비트 없음 ${id}`);
+});
+
+test("대사 비트 — 답함/안답함 쌍은 한 회차에 하나만 재생되고, 마지막 말은 장르마다 하나이며 버스 뒤", () => {
+  for (const g of ["R", "H", "C"]) {
+    const lines = DIALOGUE_V2_LINES.filter((l) => l.genre === g);
+    for (const answered of [false, true]) {
+      const played = lines.filter((l) => playsLine(beatOf(l), answered));
+      assert.equal(played.length, playedCount(lines), `${g} answered=${answered} 재생 수`);
+      const branches = played.filter((l) => beatOf(l).branch).map((l) => beatOf(l).branch);
+      assert.ok(branches.every((b) => b === (answered ? "answered" : "silent")), `${g} 갈래 혼합`);
+    }
+    // 갈래 줄 바로 앞에는 질문(ask)이 있다
+    lines.forEach((l, i) => { const b = beatOf(l); if (b.branch === "answered") assert.equal(beatOf(lines[i - 1]).to, "ask", `${g}.${l.seq} 앞이 질문이 아님`); });
+    const last = lines.filter((l) => beatOf(l).atBus);
+    assert.equal(last.length, 1, `${g} atBus 수`);
+    assert.equal(last[0], lines[lines.length - 1], `${g} atBus 가 마지막 줄이 아님`);
+  }
+  assert.ok(gazeFor({ to: "self" }) < 0.2 && gazeFor({ to: "ask" }) > 0.9 && close(gazeFor({ to: "ask", gaze: 0.1 }), 0.1));
+});
+
+test("비언어 응답 — 가만히 있으면 무응답, 끄덕임·돌림·가로젓기는 응답. 자동 시선(고정값)은 응답이 아니다", () => {
+  const still = answerWatchStart(70, -5, 77); for (let i = 0; i < 60; i++) answerWatchUpdate(still, 70 + Math.sin(i) * 1.5, -5 + Math.cos(i), 77);
+  assert.equal(answerWatchResult(still).answered, false);
+  const nod = answerWatchStart(70, -5, 77); for (const p of [-5, -8, -12, -14, -10, -6, -4]) answerWatchUpdate(nod, 70, p);
+  assert.deepEqual(answerWatchResult(nod), { answered: true, how: "nod" });
+  const turn = answerWatchStart(0, 0, 77); for (const y of [10, 25, 40, 55, 65, 72]) answerWatchUpdate(turn, y, 0);
+  assert.deepEqual(answerWatchResult(turn), { answered: true, how: "turn" });
+  const shake = answerWatchStart(70, 0, 77); for (const y of [76, 82, 74, 64, 70, 78]) answerWatchUpdate(shake, y, 0);
+  assert.deepEqual(answerWatchResult(shake), { answered: true, how: "shake" });
+  const away = answerWatchStart(0, 0, 77); for (const y of [-10, -20, -5, 5]) answerWatchUpdate(away, y, 0); // 인물 반대쪽에서 두리번 — 응답 아님
+  assert.equal(answerWatchResult(away).answered, false);
 });
 
 console.log(`\n${n} 통과${process.exitCode ? " (실패 있음)" : ""}`);

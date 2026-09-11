@@ -18,6 +18,9 @@ import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Cypress, RoundPine, Reeds, ForestRing, Shelter, Bench, Cafe } from "./BlockoutStage";
 import { deriveParams } from "@/lib/directionMap";
+import Puddles from "./Puddles";
+import Bus from "./Bus";
+import Truck from "./Truck";
 
 // HDRI 하늘 — PolyHaven(CC0) 순수 하늘 세 장을 연출 상태 가중치로 섞어 그린다.
 //   R: evening_road_01_puresky (낮은 저녁 해, 젖은 도로가 금빛으로)
@@ -149,7 +152,7 @@ const tmpV1 = new Vector3(), tmpV2 = new Vector3(), tmpQ = new Quaternion(), tmp
 
 // lookRef: 연출 파라미터 ref — 앉은 상태에서 npcGaze(시선 접촉률)만큼 Head 뼈를 관객(카메라) 쪽으로 돌린다.
 // (실측: 이 리그들의 Head 뼈 로컬 y 가 좌우 yaw, x 가 갸웃, z 가 끄덕임)
-function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, facing = 0, lookRef = null }) {
+function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, facing = 0, lookRef = null, cueRef = null }) {
   const { scene, animations } = useGLTF(RIG_URLS[rig] || RIG_URLS.A, false, true);
   const model = useMemo(() => {
     const c = skeletonClone(scene);
@@ -181,7 +184,8 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
     // 머리 look-at — 리그의 정면(+z) 방위와 머리→카메라 방위의 차를 시선 접촉률만큼 (걷는 중에도 흘끗 본다: 60%)
     let headYaw = 0;
     if (lookRef && bones.Head) {
-      const amt = (lookRef.current?.npcGaze ?? 0.4) * (k > 0 ? 1 : 0.6);
+      // 대사 비트가 시선을 정하면(혼잣말=정면, 질문=관객) 그것을, 아니면 상태의 시선 접촉률을 쓴다
+      const amt = (cueRef?.current?.lineGaze ?? lookRef.current?.npcGaze ?? 0.4) * (k > 0 ? 1 : 0.6);
       model.getWorldDirection(tmpV1); const fwd = Math.atan2(tmpV1.x, tmpV1.z);
       bones.Head.getWorldPosition(tmpV2);
       const toCam = Math.atan2(state.camera.position.x - tmpV2.x, state.camera.position.z - tmpV2.z);
@@ -428,72 +432,6 @@ function usePosterTexture() {
   }, []);
 }
 
-function Truck({ x, z }) {
-  return (
-    <group position={[x, 0, z]}>
-      {/* 캡 */}
-      <mesh position={[0, 1.05, 1.35]} castShadow>
-        <boxGeometry args={[1.7, 1.3, 1.5]} />
-        <meshStandardMaterial color="#e6e9ec" metalness={0.5} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 1.25, 2.11]}>
-        <boxGeometry args={[1.5, 0.7, 0.02]} />
-        <meshPhysicalMaterial color="#9fc3e6" metalness={0.2} roughness={0.05} transparent opacity={0.7} />
-      </mesh>
-      {/* 옆창(양쪽) · 문 이음선 · 사이드미러 — 관객은 옆면을 본다 */}
-      {[-0.86, 0.86].map((dx) => (
-        <group key={dx}>
-          <mesh position={[dx, 1.32, 1.3]}>
-            <boxGeometry args={[0.02, 0.55, 0.95]} />
-            <meshPhysicalMaterial color="#3a4a5c" metalness={0.6} roughness={0.05} transparent opacity={0.85} />
-          </mesh>
-          <mesh position={[dx, 0.85, 0.85]}>
-            <boxGeometry args={[0.025, 1.0, 0.015]} />
-            <meshStandardMaterial color="#8a9096" />
-          </mesh>
-          <mesh position={[dx * 1.12, 1.35, 2.0]}>
-            <boxGeometry args={[0.16, 0.2, 0.06]} />
-            <meshStandardMaterial color="#1e2126" />
-          </mesh>
-        </group>
-      ))}
-      {/* 적재함 — 파란 방수포 */}
-      <mesh position={[0, 0.62, -0.75]} castShadow>
-        <boxGeometry args={[1.75, 0.35, 2.7]} />
-        <meshStandardMaterial color="#c9ccd0" metalness={0.5} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 1.05, -0.75]} castShadow>
-        <boxGeometry args={[1.65, 0.55, 2.5]} />
-        <meshStandardMaterial color="#2b5aa8" roughness={0.85} />
-      </mesh>
-      {/* 바퀴 */}
-      {[[-0.8, -1.4], [0.8, -1.4], [-0.8, 1.35], [0.8, 1.35]].map(([dx, dz], i) => (
-        <group key={i} position={[dx, 0.34, dz]} rotation={[0, 0, Math.PI / 2]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.34, 0.34, 0.24, 16]} />
-            <meshStandardMaterial color="#141517" roughness={0.9} />
-          </mesh>
-          <mesh>
-            <cylinderGeometry args={[0.15, 0.15, 0.26, 10]} />
-            <meshStandardMaterial color="#9aa1a8" metalness={0.8} roughness={0.35} />
-          </mesh>
-        </group>
-      ))}
-      <mesh position={[0, 0.42, 2.15]}>
-        <boxGeometry args={[1.6, 0.22, 0.1]} />
-        <meshStandardMaterial color="#2a2e33" metalness={0.5} roughness={0.5} />
-      </mesh>
-      {[-0.6, 0.6].map((dx) => (
-        <mesh key={dx} position={[dx, 0.75, 2.12]}>
-          <circleGeometry args={[0.1, 12]} />
-          <meshStandardMaterial color="#fff6dc" emissive="#fff0c8" emissiveIntensity={1.8} />
-        </mesh>
-      ))}
-      <pointLight position={[0, 0.8, 3.0]} color="#ffe9c0" intensity={1.0} distance={6} />
-    </group>
-  );
-}
-
 // 비 갠 직후 — 정류장 지붕 앞 처마에서 물방울이 드문드문 떨어진다 (도입부 60초의 기다림에 움직임을 준다)
 function RoofDrips({ count = 9 }) {
   const drops = useMemo(() => Array.from({ length: count }, (_, i) => ({
@@ -612,131 +550,6 @@ function Cat({ x, z, running, facingBench, bob }) {
   );
 }
 
-function Bus({ x, z, headlight, doorOpen }) {
-  const body = "#2f5f93";
-  const signs = useBusSignTextures();
-  return (
-    <group position={[x, 0, z]}>
-      {/* 차체 — 아래 몸통 + 위 몸통을 살짝 좁혀 둥근 인상 */}
-      <mesh position={[0, 1.0, 0]} castShadow>
-        <boxGeometry args={[2.5, 1.3, 10.4]} />
-        <meshStandardMaterial color={body} metalness={0.55} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 2.15, 0]} castShadow>
-        <boxGeometry args={[2.4, 1.2, 10.2]} />
-        <meshStandardMaterial color={body} metalness={0.55} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 2.82, 0]} castShadow>
-        <boxGeometry args={[2.3, 0.14, 10.0]} />
-        <meshStandardMaterial color="#d9dee3" metalness={0.3} roughness={0.5} />
-      </mesh>
-      {/* 아래 스커트 — 서울 시내버스식 투톤(파랑 위·밝은 회백 아래)으로 옆면이 한 덩어리 파랑으로 보이지 않게 */}
-      <mesh position={[0, 0.52, 0]}>
-        <boxGeometry args={[2.52, 0.3, 10.42]} />
-        <meshStandardMaterial color="#cfd5db" metalness={0.5} roughness={0.4} />
-      </mesh>
-      {/* 창 띠 (양쪽) — 어두운 반사 유리에 실내 온광이 약하게 비치고, 창틀 기둥이 1.3m 마다 선다 */}
-      {[-1.22, 1.22].map((dx) => (
-        <group key={dx}>
-          <mesh position={[dx, 2.1, 0]}>
-            <boxGeometry args={[0.02, 0.95, 9.4]} />
-            <meshPhysicalMaterial color="#5b7a99" emissive="#ffd9a0" emissiveIntensity={0.12} metalness={0.7} roughness={0.04} transparent opacity={0.82} />
-          </mesh>
-          {[-3.9, -2.6, -1.3, 0, 1.3, 2.6, 3.9].map((dz) => (
-            <mesh key={dz} position={[dx, 2.1, dz]}>
-              <boxGeometry args={[0.03, 1.0, 0.06]} />
-              <meshStandardMaterial color="#1c2430" metalness={0.5} roughness={0.5} />
-            </mesh>
-          ))}
-          <mesh position={[dx, 1.62, 0]}>
-            <boxGeometry args={[0.03, 0.04, 9.6]} />
-            <meshStandardMaterial color="#d9dee3" metalness={0.3} roughness={0.5} />
-          </mesh>
-        </group>
-      ))}
-      {/* 옆 행선지판 (관객 쪽, 앞문 뒤) */}
-      <mesh position={[-1.275, 1.2, 1.2]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[1.1, 0.26]} />
-        {signs.side ? <meshStandardMaterial map={signs.side} emissiveMap={signs.side} emissive="#ffffff" emissiveIntensity={0.25} /> : <meshStandardMaterial color="#f2f4f6" />}
-      </mesh>
-      {/* 앞유리 */}
-      <mesh position={[0, 2.05, 5.21]}>
-        <boxGeometry args={[2.1, 1.1, 0.02]} />
-        <meshPhysicalMaterial color="#9fc3e6" metalness={0.2} roughness={0.05} transparent opacity={0.7} />
-      </mesh>
-      {/* 문 (관객 쪽, 왼쪽면) — 유리 두 짝, 열리면 안쪽으로 접힌 것처럼 얇아진다. 열린 문 안쪽엔 실내 불빛 */}
-      {[2.12, 2.68].map((dz, i) => (
-        <group key={dz} position={[-1.255, 1.15, dz]}>
-          <mesh>
-            <boxGeometry args={[0.04, 2.0, doorOpen ? 0.1 : 0.52]} />
-            <meshStandardMaterial color="#1a2735" metalness={0.4} roughness={0.5} />
-          </mesh>
-          {!doorOpen && (
-            <mesh position={[-0.021, 0.35, 0]}>
-              <boxGeometry args={[0.005, 1.0, 0.4]} />
-              <meshPhysicalMaterial color="#5b7a99" metalness={0.7} roughness={0.04} transparent opacity={0.8} />
-            </mesh>
-          )}
-        </group>
-      ))}
-      {doorOpen && (
-        <mesh position={[-1.2, 1.1, 2.4]} rotation={[0, -Math.PI / 2, 0]}>
-          <planeGeometry args={[1.0, 2.0]} />
-          <meshStandardMaterial color="#ffe6c2" emissive="#ffd9a0" emissiveIntensity={0.9} />
-        </mesh>
-      )}
-      {/* 바퀴 */}
-      {[[-1.05, -3.2], [1.05, -3.2], [-1.05, 3.3], [1.05, 3.3]].map(([dx, dz], i) => (
-        <group key={i} position={[dx, 0.48, dz]} rotation={[0, 0, Math.PI / 2]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.48, 0.48, 0.32, 18]} />
-            <meshStandardMaterial color="#141517" roughness={0.9} />
-          </mesh>
-          <mesh>
-            <cylinderGeometry args={[0.22, 0.22, 0.34, 12]} />
-            <meshStandardMaterial color="#9aa1a8" metalness={0.8} roughness={0.35} />
-          </mesh>
-        </group>
-      ))}
-      {/* 범퍼·행선지판 */}
-      <mesh position={[0, 0.45, 5.25]}>
-        <boxGeometry args={[2.4, 0.3, 0.12]} />
-        <meshStandardMaterial color="#1e2328" metalness={0.5} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 2.62, 5.22]}>
-        <planeGeometry args={[1.5, 0.3]} />
-        {signs.front ? <meshStandardMaterial map={signs.front} emissiveMap={signs.front} emissive="#ffffff" emissiveIntensity={1.4} /> : <meshStandardMaterial color="#ff9a3d" emissive="#ff8a2a" emissiveIntensity={1.6} />}
-      </mesh>
-      {/* 뒷유리 · 후미등 — 버스가 떠날 때 관객이 마지막으로 보는 면 */}
-      <mesh position={[0, 2.05, -5.21]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[2.0, 1.0]} />
-        <meshPhysicalMaterial color="#5b7a99" metalness={0.7} roughness={0.04} transparent opacity={0.85} />
-      </mesh>
-      {[-0.9, 0.9].map((dx) => (
-        <mesh key={`tail${dx}`} position={[dx, 0.9, -5.22]} rotation={[0, Math.PI, 0]}>
-          <planeGeometry args={[0.3, 0.16]} />
-          <meshStandardMaterial color="#ff2a1a" emissive="#ff1a0a" emissiveIntensity={1.6} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.45, -5.25]}>
-        <boxGeometry args={[2.4, 0.3, 0.12]} />
-        <meshStandardMaterial color="#1e2328" metalness={0.5} roughness={0.5} />
-      </mesh>
-      {/* 전조등 */}
-      {[-0.85, 0.85].map((dx) => (
-        <group key={dx}>
-          <mesh position={[dx, 0.85, 5.23]}>
-            <circleGeometry args={[0.15, 14]} />
-            <meshStandardMaterial color="#fff6dc" emissive="#fff0c8" emissiveIntensity={2.4 * headlight} />
-          </mesh>
-          <pointLight position={[dx, 0.85, 6.6]} color="#fff0c8" intensity={headlight * 1.8} distance={13} />
-        </group>
-      ))}
-      <pointLight position={[0, 2.2, 0]} color="#ffe6b0" intensity={0.6} distance={5} />
-    </group>
-  );
-}
-
 /**
  * @param {object} props
  * @param {React.MutableRefObject} props.directionRef  createDirectionState() 의 반환값
@@ -744,7 +557,7 @@ function Bus({ x, z, headlight, doorOpen }) {
  * @param {string|null} props.dominant                 앉는 인물 R/H/C
  * @param {React.MutableRefObject} [props.paramsOut]   파생 파라미터를 밖(HUD)에 노출
  */
-export default function ReactiveStage({ directionRef, actorsRef, dominant, paramsOut, useRig = true, rigTest = false, signText, reflect = true, benchYaw = 0 }) {
+export default function ReactiveStage({ directionRef, actorsRef, dominant, paramsOut, cueRef = null, useRig = true, rigTest = false, signText, reflect = true, benchYaw = 0 }) {
   const { scene, camera } = useThree();
   const skyMat = useRef();
   const sun = useRef();
@@ -757,6 +570,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
   const lampLight2 = useRef();
   const cafeGlow = useRef();
   const cafeLight = useRef();
+  const busSigns = useBusSignTextures();
   const npcGaze = useRef();
   const npcGroup = useRef();
   const fadeMat = useRef();
@@ -837,12 +651,16 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       npcGaze.current.getWorldPosition(tmpA);
       tmpB.copy(camera.position).sub(tmpA);
       const targetYaw = Math.atan2(tmpB.x, tmpB.z) - npcGroup.current.rotation.y;
-      const gazeYaw = MathUtils.lerp(0, targetYaw, p.npcGaze);
+      const lineGaze = cueRef?.current?.lineGaze; // 대사 비트의 시선(혼잣말=정면, 질문=관객). 없으면 상태값
+      const gazeAmt = lineGaze ?? p.npcGaze;
+      const gazeYaw = MathUtils.lerp(0, targetYaw, gazeAmt);
       const sway = Math.sin(st.elapsed * 1.7) * 0.08 * p.npcSway;
       npcGaze.current.rotation.y += (gazeYaw + sway - npcGaze.current.rotation.y) * Math.min(1, dt * 3);
       if (useRig && actors.npc.seated) {
         // 리깅 캐릭터: 몸 전체를 시선 접촉률만큼 관객 쪽으로. 0.15(기본) ↔ 관객을 정면으로 보는 각도.
-        const bodyTarget = MathUtils.lerp(0.1, Math.PI / 2 * 0.9, p.npcGaze) + sway;
+        // 몸은 머리보다 덜 따라간다 — 상태값과 대사 시선의 중간.
+        const bodyAmt = lineGaze == null ? p.npcGaze : (p.npcGaze + lineGaze) * 0.5;
+        const bodyTarget = MathUtils.lerp(0.1, Math.PI / 2 * 0.9, bodyAmt) + sway;
         npcGroup.current.rotation.y += (bodyTarget - npcGroup.current.rotation.y) * Math.min(1, dt * 1.5);
       }
     }
@@ -915,11 +733,8 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
           <meshStandardMaterial color="#cfcfc6" />
         </mesh>
       ))}
-      {/* 물웅덩이 — 연석 바로 앞(트럭이 밟는 자리) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, 0.012, -3.9]} scale={[1.4, 0.55, 1]}>
-        <circleGeometry args={[0.7, 18]} />
-        <meshPhysicalMaterial color="#3d4650" roughness={0.03} metalness={0.5} transparent opacity={0.45} />
-      </mesh>
+      {/* 물웅덩이 — 연석 앞 차선에 네 곳. 첫 번째가 트럭이 밟는 자리 (components/Puddles.jsx) */}
+      <Puddles reflect={reflect} />
 
       {/* ================= 정류장 — 등 뒤가 유리, 앞은 도로로 열림 =================
           폭 3.2m (x −1.0…2.2): 관객은 벤치 왼쪽(x=0), 옆사람은 오른쪽(x 1.05~1.7)에 앉으므로 오른쪽으로 넓다 */}
@@ -1103,7 +918,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
             <Suspense fallback={<Person raincoat={dominant !== "C"} tint={npcTint} head={npcHead} walking={actors.npc.walking} seated={actors.npc.seated} bob={actors.npc.bob} gazeRef={npcGaze} />}>
               {/* 시선 접촉률은 몸 전체가 관객 쪽으로 도는 정도로 나타낸다 — 착석 상태에선 관객(-x 쪽)을 향하는 각도가 -π/2 */}
               <group ref={npcGaze} position={[0, 1.55, 0]} />
-              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} seated={actors.npc.seated} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} lookRef={paramsOut} />
+              <RiggedPerson rig={dominant === "H" ? "A" : "B"} walking={actors.npc.walking} seated={actors.npc.seated} scale={dominant === "C" ? 0.9 : 1.0} facing={actors.npc.seated ? Math.PI : Math.PI * 0.8} lookRef={paramsOut} cueRef={cueRef} />
             </Suspense>
           ) : (
           <Person
@@ -1127,7 +942,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       )}
       {actors.bus?.visible && (
         <group position={[actors.bus.x, 0, actors.bus.z]} rotation={[0, Math.PI / 2, 0]}>
-          <Bus {...actors.bus} x={0} z={0} />
+          <Bus {...actors.bus} x={0} z={0} signs={busSigns} />
         </group>
       )}
 
