@@ -4,7 +4,33 @@
 // 휠 아치·앞유리 기울기·행선지판 박스·전조등 베젤·와이퍼·사이드미러·지붕 에어컨·문 계단을 붙였다.
 // 로컬 좌표: +z 가 앞, −x 가 연석(관객) 쪽. 무대에서는 y 축 π/2 회전으로 도로(x 축)를 따라 달린다.
 import { useMemo } from "react";
-import { Shape, ExtrudeGeometry } from "three";
+import { Shape, ExtrudeGeometry, CanvasTexture, SRGBColorSpace } from "three";
+
+// 창 안쪽 — 차체가 속이 찬 압출이라 실내를 진짜로 그릴 수는 없다. 대신 창마다 "따뜻한 실내 + 좌석 등받이 + 승객 실루엣"을
+// 그린 캔버스를 발광 텍스처로 얹는다(게임의 야간 버스 창 처리). 정차 중 관객이 16초쯤 바로 앞에서 보는 면이다.
+function useWindowTextures() {
+  return useMemo(() => {
+    if (typeof document === "undefined") return [];
+    const make = (seed) => {
+      const c = document.createElement("canvas"); c.width = 512; c.height = 512; const g = c.getContext("2d");
+      const bg = g.createLinearGradient(0, 0, 0, 512); bg.addColorStop(0, "#e3cfa9"); bg.addColorStop(1, "#b39a72");
+      g.fillStyle = bg; g.fillRect(0, 0, 512, 512);
+      g.fillStyle = "rgba(255,246,220,0.55)"; g.fillRect(0, 0, 512, 46); // 천장 조명 띠
+      g.fillStyle = "#4a4038"; g.fillRect(0, 300, 512, 212); // 좌석 등받이 줄
+      g.fillStyle = "#5b5047"; g.fillRect(0, 300, 512, 14);
+      // 승객 실루엣 — 창마다 0~2명, 자리·키가 다르다 (seed 로 결정). 빈 창도 있어야 버스가 붐비지 않는다
+      const layouts = [[[140, 1]], [[120, 0], [372, 1]], [], [[300, 1]], [[160, 1], [390, 0]]];
+      for (const [x, tall] of layouts[seed % layouts.length]) {
+        g.fillStyle = "#2b2620";
+        g.beginPath(); g.ellipse(x, 262 - tall * 16, 62, 40, 0, Math.PI, 0); g.fill(); // 어깨
+        g.beginPath(); g.arc(x, 218 - tall * 16, 27, 0, Math.PI * 2); g.fill(); // 머리
+      }
+      g.fillStyle = "rgba(0,0,0,0.12)"; g.fillRect(0, 0, 512, 512); // 유리 톤
+      const tx = new CanvasTexture(c); tx.colorSpace = SRGBColorSpace; tx.anisotropy = 4; return tx;
+    };
+    return [make(0), make(1), make(2), make(3), make(4)];
+  }, []);
+}
 
 const L = 10.6, HW = 1.25, Y0 = 0.42, Y1 = 3.05; // 길이 · 반폭 · 바닥 · 지붕 (m)
 const BODY = "#2a62b4", SKIRT = "#dde2e7", TRIM = "#141920", GLASS = "#1f2c3a", RUBBER = "#0c0f12", CHROME = "#c9ced4";
@@ -32,7 +58,7 @@ function useBodyGeometry() {
 }
 
 // 창문 한 장 — 고무 테두리(검정) 위에 어두운 반사 유리. side −1 = 연석 쪽, +1 = 반대쪽
-function Pane({ side, z, w, h = 1.05, y = 2.1, lit = 0.14 }) {
+function Pane({ side, z, w, h = 1.05, y = 2.1, lit = 0.14, tex = null }) {
   const rot = [0, side > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
   return (
     <group position={[side * HW, y, z]} rotation={rot}>
@@ -42,7 +68,11 @@ function Pane({ side, z, w, h = 1.05, y = 2.1, lit = 0.14 }) {
       </mesh>
       <mesh position={[0, 0, 0.009]}>
         <planeGeometry args={[w, h]} />
-        <meshPhysicalMaterial color={GLASS} emissive="#ffd9a0" emissiveIntensity={lit} metalness={0.55} roughness={0.12} envMapIntensity={0.7} clearcoat={1} clearcoatRoughness={0.03} />
+        {tex ? (
+          <meshPhysicalMaterial map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={0.42} color="#9a9a9a" metalness={0.35} roughness={0.12} envMapIntensity={0.55} clearcoat={1} clearcoatRoughness={0.03} />
+        ) : (
+          <meshPhysicalMaterial color={GLASS} emissive="#ffd9a0" emissiveIntensity={lit} metalness={0.55} roughness={0.12} envMapIntensity={0.7} clearcoat={1} clearcoatRoughness={0.03} />
+        )}
       </mesh>
     </group>
   );
@@ -79,6 +109,7 @@ function Arch({ side, z }) {
 
 export default function Bus({ x, z, headlight = 1, doorOpen = false, signs = {} }) {
   const body = useBodyGeometry();
+  const winTex = useWindowTextures();
   const rearPanes = [-4.55, -3.45, -2.35, -1.25, -0.15, 0.95];
   return (
     <group position={[x, 0, z]}>
@@ -102,10 +133,10 @@ export default function Bus({ x, z, headlight = 1, doorOpen = false, signs = {} 
       ))}
 
       {/* 창문 — 객실 6장씩, 연석 쪽은 앞문 앞에 작은 창, 반대쪽은 운전석 창 */}
-      {rearPanes.map((pz) => <Pane key={`l${pz}`} side={-1} z={pz} w={1.0} />)}
-      {rearPanes.map((pz) => <Pane key={`r${pz}`} side={1} z={pz} w={1.0} />)}
-      <Pane side={-1} z={3.95} w={1.3} />
-      <Pane side={1} z={2.0} w={1.0} />
+      {rearPanes.map((pz, i) => <Pane key={`l${pz}`} side={-1} z={pz} w={1.0} tex={winTex[i % winTex.length] || null} />)}
+      {rearPanes.map((pz, i) => <Pane key={`r${pz}`} side={1} z={pz} w={1.0} tex={winTex[(i + 2) % winTex.length] || null} />)}
+      <Pane side={-1} z={3.95} w={1.3} tex={winTex[3] || null} />
+      <Pane side={1} z={2.0} w={1.0} tex={winTex[1] || null} />
       <Pane side={1} z={3.9} w={1.5} lit={0.08} />
 
       {/* 앞문 (연석 쪽, z 1.86~2.94) — 차체가 속이 찬 압출이라 문 자리는 차체 면 바로 바깥에 그린다:
