@@ -4,6 +4,7 @@
 // 반사 재질을 쓰고, 둘레에는 젖어서 어두워진 아스팔트 띠를 둔다. 반사는 장면을 한 번 더 그리므로
 // 웅덩이 전부를 한 장의 평면(마스크 하나)으로 처리해 추가 패스는 한 번뿐이다. XR 에서는 반사 없이 어두운 물리 재질.
 import { useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
 import { MeshReflectorMaterial } from "@react-three/drei";
 import { CanvasTexture, LinearFilter, RepeatWrapping } from "three";
 
@@ -59,6 +60,8 @@ function makeRipple() {
 
 export default function Puddles({ reflect = true }) {
   const masks = useMemo(() => ({ crisp: makeMask(0, 1.2), halo: makeMask(22, 20), ripple: makeRipple() }), []);
+  // 잔물결이 아주 천천히 흐른다 — 처마 물방울과 바람이 수면을 건드리는 정도 (반사 좌표만 흔들리고 윤곽은 그대로)
+  useFrame((_, dt) => { masks.ripple.offset.x += dt * 0.012; masks.ripple.offset.y -= dt * 0.007; });
   return (
     <group position={[CX, 0, CZ]} rotation={[-Math.PI / 2, 0, 0]}>
       {/* 젖은 테두리 — 웅덩이 둘레 아스팔트가 더 어둡다 */}
