@@ -18,6 +18,7 @@ KAIST CTxAI 캡스톤 7조 <버스 정류장>의 팀 도구이자 체험 프로�
 
 헤드리스 관찰: `scripts/observe.sh shots/run1` 한 줄이 헤드리스 크롬을 띄우고 `/film?auto=1&cam=0` 을 열어 5초마다 PNG·HUD 텍스트(`hud.txt`)를 남긴다(dev 서버 포트는 `FILM_PORT`, 기본 3017).
 낱개로는 `node scripts/cdp.mjs open|eval|shot|drag|loop|close` — `drag` 로 고개를 돌리고 `shot` 으로 한 장 찍는다. 탭은 한 번에 하나만(둘이면 fps 가 떨어져 영화 시간이 느려진다).
+소리 있는 완주 영상: `node scripts/cdp.mjs record 9224 "http://localhost:3017/film?cam=0" /tmp/film_rec 225 12` → `scripts/assemble-recording.sh /tmp/film_rec out.mp4`. 디자인만 볼 때는 `/film?auto=1&cam=0&bus=1`(정차한 버스)·`?truck=1`·`?rigtest=1`(리그·머리 크기)·`?answer=1`(답함 갈래 강제).
 
 설계와 매핑표, 남은 일은 [`Bus/규격/반응형_실시간_영화.md`](../Bus/규격/반응형_실시간_영화.md).
 
