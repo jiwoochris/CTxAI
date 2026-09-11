@@ -234,6 +234,7 @@ export default function FilmPage() {
   const [dominant, setDominant] = useState(null);
   const [xrError, setXrError] = useState("");
   const [camStatus, setCamStatus] = useState("off");
+  const [askStatus, setAskStatus] = useState(null); // 질문 뒤 기다림·응답 결과 (HUD — 헤드셋 파일럿에서 고개 응답이 잡히는지 보는 용도)
 
   const directionRef = useRef(null);
   const sensorRef = useRef(null);
@@ -328,7 +329,7 @@ export default function FilmPage() {
     sensorRef.current = createHeadPoseSensor({ push: d.pushEvidence, mark: d.markEvent });
     paramsRef.current = null;
     filmRef.current = { running: true, t: 0, dominant: null, npcDistance: 0.9, busAt: null, onFrame: null };
-    setDominant(null); setLine(null); setCaption("");
+    setDominant(null); setLine(null); setCaption(""); setAskStatus(null);
     if (bias) d.pushEvidence({ [bias.g]: 1 }, bias.w, "bias", `?bias=${bias.g}`);
     d.setPhase("intro");
     setPhase("intro");
@@ -524,11 +525,14 @@ export default function FilmPage() {
       if (b.to === "ask") {
         // 관객을 보며 기다린다 — FilmDirector 가 이 동안 머리 자세 폭을 잰다
         film.watch = null; film.listen = true;
+        setAskStatus({ seq: l.seq, listening: true });
         await sec(b.wait ?? 2.5);
         const r = answerWatchResult(film.watch);
         film.listen = false; film.watch = null;
         answered = forceAnswer || r.answered;
-        d.markEvent("ask", { seq: l.seq, answered, how: forceAnswer ? "forced" : r.how });
+        const how = forceAnswer ? "forced" : r.how;
+        setAskStatus({ seq: l.seq, listening: false, answered, how });
+        d.markEvent("ask", { seq: l.seq, answered, how });
       }
       if (b.after) await sec(b.after);
       if (!b.atBus) await wait(gapMs(paramsRef.current));
@@ -657,6 +661,7 @@ export default function FilmPage() {
             <span>확신 <b>{Math.round(snap.confidence * 100)}%</b></span>
             <span>웹캠 <b>{camStatus}</b></span>
             {useVoice && <span>음성 <b>{voiceStatus}</b></span>}
+            {askStatus && <span>응답 <b>{askStatus.listening ? "기다리는 중" : askStatus.answered ? ({ nod: "끄덕임", turn: "돌림", shake: "가로젓기", forced: "강제" }[askStatus.how] || "있음") : "없음"}</b> <span className={s.dim}>{askStatus.seq}</span></span>}
             {signText && <span>표지판 <b>{signText}</b></span>}
             <span>거리 <b>{snap.params ? snap.params.npcDistance.toFixed(2) : "-"}m</b></span>
             <span>시선 <b>{snap.params ? Math.round(snap.params.npcGaze * 100) : "-"}%</b></span>
