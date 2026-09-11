@@ -711,15 +711,20 @@ export default function FilmPage() {
       {(phase === "scene" || phase === "bus") && line && (
         <div className={s.subtitleBar} style={{ "--accent": lineAccent }}>
           <div className={s.subtitleInner}>
-            <div className={s.progressTrack}>
-              <div className={s.progressFill} style={{ width: `${((line.index + 1) / line.total) * 100}%` }} />
-            </div>
-            <div className={s.seqRow}>
-              <span className={s.seqBadge}>{line.genre}-{line.seq}</span>
-              <span>{line.index + 1} / {line.total}줄</span>
-              {line.flavor && <span className={s.dim}>· 배합 콜백 ({DIALOGUE_V2_GENRE_LABEL[line.genre]})</span>}
-              {line.tinted && <span className={s.dim}>· {DIALOGUE_V2_GENRE_LABEL[line.tinted]} 변주</span>}
-            </div>
+            {/* 진행 막대·줄 번호는 개발용 — ?hud=0(전시 화면)에서는 자막만 남긴다 */}
+            {showHud && (
+              <div className={s.progressTrack}>
+                <div className={s.progressFill} style={{ width: `${((line.index + 1) / line.total) * 100}%` }} />
+              </div>
+            )}
+            {showHud && (
+              <div className={s.seqRow}>
+                <span className={s.seqBadge}>{line.genre}-{line.seq}</span>
+                <span>{line.index + 1} / {line.total}줄</span>
+                {line.flavor && <span className={s.dim}>· 배합 콜백 ({DIALOGUE_V2_GENRE_LABEL[line.genre]})</span>}
+                {line.tinted && <span className={s.dim}>· {DIALOGUE_V2_GENRE_LABEL[line.tinted]} 변주</span>}
+              </div>
+            )}
             <p className={s.lineText}>{line.text}</p>
           </div>
         </div>
