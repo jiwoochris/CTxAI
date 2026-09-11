@@ -109,6 +109,7 @@ function Person({ raincoat = true, tint = "#4a5b6a", head = "#c9b7a3", scale = 1
 // 앉기 클립이 없어 착석 상태에서는 걷기 클립을 멈춘 자세로 벤치 옆에 선다 — 아트 GLB가
 // 오면 이 컴포넌트만 바꾼다. 여러 명이 같은 GLB를 쓰므로 SkeletonUtils.clone 으로 복제한다.
 export const RIG_URLS = { A: "/reactive/models/rigA.glb", B: "/reactive/models/rigB.glb" };
+const HEAD_SCALE = 0.84; // 머리 뼈 스케일 — 1.0 이면 원본(큰 머리). window.__headScale 로 실행 중 조정
 
 // 후드/머릿수건 — v2.md §1-2 "후드가 얼굴 대부분을 가리고 있어 성별과 나이를 정확히 알 수 없다".
 // 지금은 쓰지 않는다: 임시 리깅(Meshy)은 머리 비례가 커서 후드가 맞지 않았다. Mixamo 인물로
@@ -192,6 +193,8 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
       let d = toCam - fwd; d = Math.atan2(Math.sin(d), Math.cos(d));
       headYaw = MathUtils.clamp(d, -1.2, 1.2) * amt;
     }
+    // 머리 크기 — Meshy 리그는 머리가 몸에 비해 크다(근접 화면에서 인형처럼 보이는 원인). 뼈 스케일로 줄인다 (자식 머리카락·눈도 함께)
+    if (bones.Head) bones.Head.scale.setScalar((typeof window !== "undefined" && window.__headScale) || HEAD_SCALE);
     if (k <= 0) {
       model.position.y = 0; rest.current = null;
       // 걷는 중: 믹서가 매 프레임 뼈를 다시 쓰므로 그 위에 곱해도 누적되지 않는다
@@ -335,6 +338,27 @@ function RealTree({ kind = "fir", position, scale = 5, yaw = 0 }) {
   const url = kind === "fir" ? "/reactive/models/props/fir_sapling.glb" : "/reactive/models/props/pine_sapling_small.glb";
   return <Prop url={url} only={kind === "fir" ? FIR_RE : PINE_RE} position={position} rotation={[0, yaw, 0]} scale={scale} />;
 }
+// 먼 산 능선 — 지면 평면이 하늘과 만나는 자를 듯한 수평선을 가린다. 안개 속 실루엣이라 형태는 거칠어도 된다.
+// 카페(30m, −38°)·우비 인물 시선은 60m 밖이라 가리지 않는다.
+function Hills() {
+  const hills = useMemo(() => Array.from({ length: 16 }, (_, i) => {
+    const a = (i / 16) * Math.PI * 2 + 0.2;
+    const r = 62 + ((i * 13) % 5) * 4;
+    const w = 26 + ((i * 7) % 4) * 6, h = 7 + ((i * 11) % 5) * 1.8;
+    return { x: Math.sin(a) * r, z: -Math.cos(a) * r, w, h, yaw: a + 0.3 };
+  }), []);
+  return (
+    <group>
+      {hills.map((hl, i) => (
+        <mesh key={i} position={[hl.x, -1.5, hl.z]} rotation={[0, hl.yaw, 0]} scale={[hl.w, hl.h, 14]}>
+          <sphereGeometry args={[1, 18, 10]} />
+          <meshStandardMaterial color="#3f4d45" roughness={1} metalness={0} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function RealForest() {
   // 3D_배경_구성_기획.md §4 의 방위: 정면(0°) 도로 건너편은 침엽수림, 오른쪽(+60°)이 공원 입구 숲,
   // 왼쪽 건너편(-38°)은 카페가 보여야 하므로 그 앞은 비운다. 뒤(180°)는 풀숲 너머 드문 나무.
@@ -853,6 +877,7 @@ export default function ReactiveStage({ directionRef, actorsRef, dominant, param
       <Reeds position={[6.8, 0, -2.4]} count={5} />
       <Reeds position={[8.4, 0, -2.0]} count={6} />
       <Reeds position={[-7.5, 0, -2.2]} count={5} />
+      <Hills />
       <Suspense fallback={<ForestRing radius={22} count={30} />}>
         <RealForest />
       </Suspense>
