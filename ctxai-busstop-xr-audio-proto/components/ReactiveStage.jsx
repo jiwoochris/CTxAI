@@ -163,6 +163,7 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
   const bones = useMemo(() => { const b = {}; model.traverse((o) => { if (o.isBone) b[o.name] = o; }); return b; }, [model]);
   const rest = useRef(null); // 앉기 시작한 프레임의 뼈 쿼터니언(믹서가 쓴 정지 프레임)
   const blend = useRef(0);   // 0 = 서 있음, 1 = 앉음. 0.7초에 걸쳐 오간다 — 앉기·일어서기가 툭 바뀌지 않게
+  const tilt = useRef(0);    // 질문 뒤 기다리는 동안 고개를 살짝 갸웃한다 (0→1, 0.4초)
   const actionRef = useRef(null);
   const { actions } = useAnimations(animations, model);
   const holdFrame = (a) => { a.stopFading(); a.setEffectiveWeight(1); a.play(); a.paused = true; a.time = 0.35; }; // 두 다리가 모이는 프레임
@@ -202,6 +203,10 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
       return;
     }
     const breath = Math.sin(state.clock.elapsedTime * 1.25) * 0.025; // 숨쉬기 — 척추가 살짝 펴졌다 굽는다
+    // 묻고 기다리는 동안 — 머리를 관객 쪽으로 살짝 기울인다(갸웃, Head 뼈 로컬 x). 답을 기다린다는 몸짓
+    const listening = !!(cueRef?.current?.listen || (typeof window !== "undefined" && window.__listen));
+    tilt.current = listening ? Math.min(1, tilt.current + dt / 0.4) : Math.max(0, tilt.current - dt / 0.5);
+    const headTilt = 0.16 * tilt.current;
     if (!rest.current) {
       const r = {}; for (const k in bones) r[k] = bones[k].quaternion.clone();
       model.updateMatrixWorld(true);
@@ -215,7 +220,8 @@ function RiggedPerson({ rig = "A", walking = false, seated = false, scale = 1, f
       if (!b || !Array.isArray(r) || !q0) continue;
       const dz = name === "Spine" ? breath : name === "Head" ? -breath * 0.6 : 0;
       const dy = name === "Head" ? headYaw : 0;
-      tmpQ.setFromEuler(tmpE.set(r[0] * k, (r[1] + dy) * k, (r[2] + dz) * k));
+      const dx = name === "Head" ? headTilt : 0;
+      tmpQ.setFromEuler(tmpE.set((r[0] + dx) * k, (r[1] + dy) * k, (r[2] + dz) * k));
       b.quaternion.copy(q0).multiply(tmpQ);
     }
     model.position.y = (pose.seatY - rest.current.hipY) * k; // 골반이 좌면 높이에 오도록 내린다
