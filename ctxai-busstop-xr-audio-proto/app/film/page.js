@@ -212,6 +212,7 @@ export default function FilmPage() {
   // 침묵은 상태가 정한 값(npcSilence)을 하한으로 두고, 남는 시간을 줄 사이에 고르게 나눈다.
   const sceneTarget = Math.max(0, Number(q.scene) || 0);
   const fx = q.fx !== "0"; // ?fx=0 이면 후처리·도로 반사 끄기 (성능 점검용)
+  const forceAnswer = q.answer === "1"; // ?answer=1 — 모든 질문을 "답함"으로 처리 (QA: 데스크톱에선 고개 응답이 생기지 않아 답함 갈래를 들을 수 없다)
   const [xrActive, setXrActive] = useState(false);
   // ?auto=1 — 마운트 직후 자동 시작 (관찰·리허설용. 브라우저 자동재생 정책에 따라 소리가 막힐 수 있다)
   const autoStart = q.auto === "1";
@@ -526,8 +527,8 @@ export default function FilmPage() {
         await sec(b.wait ?? 2.5);
         const r = answerWatchResult(film.watch);
         film.listen = false; film.watch = null;
-        answered = r.answered;
-        d.markEvent("ask", { seq: l.seq, answered: r.answered, how: r.how });
+        answered = forceAnswer || r.answered;
+        d.markEvent("ask", { seq: l.seq, answered, how: forceAnswer ? "forced" : r.how });
       }
       if (b.after) await sec(b.after);
       if (!b.atBus) await wait(gapMs(paramsRef.current));
